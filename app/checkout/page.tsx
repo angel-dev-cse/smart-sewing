@@ -3,6 +3,8 @@
 import { useCart } from "@/lib/cart-context";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PAYMENT_INSTRUCTIONS } from "@/lib/payment-instructions";
+
 
 type PaymentMethod = "COD" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
 
@@ -180,6 +182,20 @@ export default function CheckoutPage() {
                 <option value="BANK_TRANSFER">Bank transfer</option>
               </select>
             </div>
+
+            {paymentMethod !== "COD" && (
+              <div className="border rounded bg-yellow-50 p-4 text-sm">
+                <p className="font-semibold mb-2">
+                  {PAYMENT_INSTRUCTIONS[paymentMethod].title}
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                  {PAYMENT_INSTRUCTIONS[paymentMethod].lines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
 
             {paymentMethod !== "COD" && (
               <div>
