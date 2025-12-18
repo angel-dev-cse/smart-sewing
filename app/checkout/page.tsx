@@ -2,9 +2,9 @@
 
 import { useCart } from "@/lib/cart-context";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-type PaymentMethod = "COD" | "BANK_TRANSFER";
+type PaymentMethod = "COD" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -15,22 +15,33 @@ export default function CheckoutPage() {
   const [addressLine1, setAddressLine1] = useState("");
   const [city, setCity] = useState("Chittagong");
   const [notes, setNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
 
-  const [deliveryFee, setDeliveryFee] = useState(0); // later you can compute based on city/zone
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [paymentRef, setPaymentRef] = useState("");
+
+  const [deliveryFee] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
   const total = subtotal + deliveryFee;
 
+  useEffect(() => {
+    if (paymentMethod === "COD") setPaymentRef("");
+  }, [paymentMethod]);
+
   async function placeOrder(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
     if (items.length === 0) return setError("Your cart is empty.");
+
     if (!customerName.trim() || !phone.trim() || !addressLine1.trim() || !city.trim()) {
       return setError("Please fill in name, phone, address, and city.");
+    }
+
+    if (paymentMethod !== "COD" && !paymentRef.trim()) {
+      return setError("Please enter transaction reference for this payment method.");
     }
 
     setLoading(true);
@@ -43,18 +54,20 @@ export default function CheckoutPage() {
           phone: phone.trim(),
           addressLine1: addressLine1.trim(),
           city: city.trim(),
-          notes: notes.trim() || null,
           paymentMethod,
           deliveryFee,
+          notes:
+            paymentMethod === "COD"
+              ? (notes.trim() || null)
+              : `PaymentRef: ${paymentRef.trim()}${notes.trim() ? ` | Notes: ${notes.trim()}` : ""}`,
           items: items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setError(data?.error ?? "Failed to place order.");
-        setLoading(false);
         return;
       }
 
@@ -62,6 +75,7 @@ export default function CheckoutPage() {
       router.push(`/order/${data.orderId}`);
     } catch {
       setError("Network error. Please try again.");
+    } finally {
       setLoading(false);
     }
   }
@@ -141,9 +155,6 @@ export default function CheckoutPage() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
               />
-              <p className="text-xs text-gray-600 mt-1">
-                Keep it simple for MVP (e.g., Chittagong, Dhaka).
-              </p>
             </div>
 
             <div>
@@ -164,9 +175,28 @@ export default function CheckoutPage() {
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
               >
                 <option value="COD">Cash on Delivery</option>
+                <option value="BKASH">bKash</option>
+                <option value="NAGAD">Nagad</option>
                 <option value="BANK_TRANSFER">Bank transfer</option>
               </select>
             </div>
+
+            {paymentMethod !== "COD" && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Transaction reference (required)
+                </label>
+                <input
+                  className="w-full border rounded px-3 py-2"
+                  value={paymentRef}
+                  onChange={(e) => setPaymentRef(e.target.value)}
+                  placeholder="e.g. bKash TrxID / Nagad Txn ID / Bank ref"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  After payment, enter your transaction ID here.
+                </p>
+              </div>
+            )}
 
             {error && (
               <div className="border border-red-300 bg-red-50 text-red-700 p-3 rounded text-sm">

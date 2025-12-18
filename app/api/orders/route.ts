@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing customer fields." }, { status: 400 });
     }
 
-    if (!["COD", "BANK_TRANSFER"].includes(paymentMethod)) {
+    if (!["COD", "BKASH", "NAGAD", "BANK_TRANSFER"].includes(paymentMethod)) {
       return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
     }
 

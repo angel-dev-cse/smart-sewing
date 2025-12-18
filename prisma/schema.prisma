@@ -21,6 +21,8 @@ enum OrderStatus {
 
 enum PaymentMethod {
   COD
+  BKASH
+  NAGAD
   BANK_TRANSFER
 }
 
