@@ -1,4 +1,5 @@
-docker up -d db
+docker compose up -d
+pnpm dev
 pnpm prisma studio 
 pnpm prisma db seed
 
