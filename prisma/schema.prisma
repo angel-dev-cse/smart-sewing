@@ -75,6 +75,9 @@ model Order {
   addressLine1 String
   city         String
   notes        String?
+  salesInvoiceId String? @unique
+  salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
+
 
   status OrderStatus @default(PENDING)
 
@@ -139,6 +142,8 @@ model SalesInvoice {
   id        String             @id @default(cuid())
   invoiceNo Int                @unique
   status    SalesInvoiceStatus @default(DRAFT)
+  orderId Order? @relation
+
 
   customerName String
   phone        String?

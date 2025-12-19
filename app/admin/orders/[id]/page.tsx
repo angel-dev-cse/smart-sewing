@@ -1,7 +1,7 @@
-
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import AdminOrderActions from "./ui";
+import OrderInvoiceActions from "./invoice-actions";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -24,6 +24,15 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <p className="text-sm text-gray-600">
             {new Date(order.createdAt).toLocaleString()}
           </p>
+
+          {/* NEW: Invoice actions (generate/open/print) */}
+          <div className="mt-3">
+            <OrderInvoiceActions
+              orderId={order.id}
+              status={order.status}
+              salesInvoiceId={order.salesInvoiceId ?? null}
+            />
+          </div>
         </div>
 
         <AdminOrderActions
@@ -51,8 +60,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             Method: <span className="font-mono">{order.paymentMethod}</span>
           </p>
           <p className="text-sm text-gray-700">
-            Payment status:{" "}
-            <span className="font-mono">{order.paymentStatus}</span>
+            Payment status: <span className="font-mono">{order.paymentStatus}</span>
           </p>
 
           <div className="border-t mt-4 pt-4 text-sm space-y-2">
