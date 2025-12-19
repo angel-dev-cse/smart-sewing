@@ -31,6 +31,12 @@ enum PaymentStatus {
   PAID
 }
 
+enum InventoryMovementKind {
+  IN
+  OUT
+  ADJUST
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -45,6 +51,7 @@ model Product {
   updatedAt   DateTime    @updatedAt
 
   orderItems  OrderItem[]
+  movements   InventoryMovement[]
 }
 
 model Order {
@@ -69,6 +76,8 @@ model Order {
   updatedAt     DateTime      @updatedAt
 
   items         OrderItem[]
+  movements     InventoryMovement[]
+
 }
 
 model OrderItem {
@@ -87,4 +96,29 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+model InventoryMovement {
+  id          String                @id @default(cuid())
+  productId   String
+  kind        InventoryMovementKind
+  quantity    Int                   // IN/OUT positive; ADJUST is signed delta
+  beforeStock Int
+  afterStock  Int
+  note        String?
+
+  // "Document-first" future-proofing:
+  // Later: SALES_INVOICE, PURCHASE_ORDER, RENTAL, etc.
+  refType     String?
+  refId       String?
+
+  orderId     String?               // convenience link for current order flow
+  createdAt   DateTime              @default(now())
+
+  product     Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  order       Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([orderId])
+  @@index([refType, refId])
 }

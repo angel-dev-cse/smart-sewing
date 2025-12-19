@@ -54,9 +54,33 @@ export async function PATCH(
       // Refund stock ONLY when transitioning into CANCELLED from a non-cancelled status
       if (statusChanging && nextStatus === "CANCELLED" && order.status !== "CANCELLED") {
         for (const it of order.items) {
+          const p = await tx.product.findUnique({
+            where: { id: it.productId },
+            select: { stock: true },
+          });
+      
+          if (!p) continue;
+      
+          const beforeStock = p.stock;
+          const afterStock = beforeStock + it.quantity;
+      
           await tx.product.update({
             where: { id: it.productId },
-            data: { stock: { increment: it.quantity } },
+            data: { stock: afterStock },
+          });
+      
+          await tx.inventoryMovement.create({
+            data: {
+              productId: it.productId,
+              kind: "IN",
+              quantity: it.quantity,
+              beforeStock,
+              afterStock,
+              note: "Refund stock due to order cancellation",
+              orderId: order.id,
+              refType: "ORDER",
+              refId: order.id,
+            },
           });
         }
       }

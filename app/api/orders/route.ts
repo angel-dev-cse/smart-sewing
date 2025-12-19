@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-type PaymentMethod = "COD" | "BANK_TRANSFER";
+type PaymentMethod = "COD" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
 
 export async function POST(req: Request) {
   try {
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
     const total = subtotal + deliveryFee;
 
     // Transaction = create order + items + decrement stock
+    // Transaction = create order + items + decrement stock + write inventory movements
     const order = await db.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
@@ -96,27 +97,51 @@ export async function POST(req: Request) {
           subtotal,
           deliveryFee,
           total,
-          // status defaults to PENDING
-          // paymentStatus defaults to UNPAID
-          items: {
-            create: orderItemsData,
-          },
+          items: { create: orderItemsData },
         },
         select: { id: true },
       });
 
       for (const it of orderItemsData) {
+        // re-check stock inside transaction (safer than relying on pre-check)
+        const p = await tx.product.findUnique({
+          where: { id: it.productId },
+          select: { stock: true, title: true },
+        });
+
+        if (!p) throw new Error("Product not found.");
+        if (it.quantity > p.stock) throw new Error(`Not enough stock for ${p.title}.`);
+
+        const beforeStock = p.stock;
+        const afterStock = beforeStock - it.quantity;
+
         await tx.product.update({
           where: { id: it.productId },
-          data: { stock: { decrement: it.quantity } },
+          data: { stock: afterStock },
+        });
+
+        await tx.inventoryMovement.create({
+          data: {
+            productId: it.productId,
+            kind: "OUT",
+            quantity: it.quantity,
+            beforeStock,
+            afterStock,
+            note: null,
+            orderId: created.id,
+            refType: "ORDER",
+            refId: created.id,
+          },
         });
       }
 
       return created;
     });
 
+
     return NextResponse.json({ orderId: order.id });
-  } catch (e) {
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
+  } catch (e: any) {
+    const msg = typeof e?.message === "string" ? e.message : "Server error.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

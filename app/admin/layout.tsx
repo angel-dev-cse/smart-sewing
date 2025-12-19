@@ -14,15 +14,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block underline" href="/shop">
               Back to shop
             </Link>
+            <Link className="block underline" href="/api/admin/logout">
+              Logout
+            </Link>
+            <Link className="block underline" href="/admin/inventory">
+              Inventory
+            </Link>
           </nav>
         </div>
       </aside>
 
       <section className="col-span-12 md:col-span-9">{children}</section>
-      <Link className="block underline" href="/api/admin/logout">
-        Logout
-      </Link>
-
     </div>
   );
 }
