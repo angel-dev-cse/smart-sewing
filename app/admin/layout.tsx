@@ -11,14 +11,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block underline" href="/admin/orders">
               Orders
             </Link>
+            <Link className="block underline" href="/admin/inventory">
+              Inventory
+            </Link>
+            <Link className="block underline" href="/admin/invoices">
+              Invoices
+            </Link>
             <Link className="block underline" href="/shop">
               Back to shop
             </Link>
             <Link className="block underline" href="/api/admin/logout">
               Logout
-            </Link>
-            <Link className="block underline" href="/admin/inventory">
-              Inventory
             </Link>
           </nav>
         </div>

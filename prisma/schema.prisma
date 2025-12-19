@@ -37,51 +37,63 @@ enum InventoryMovementKind {
   ADJUST
 }
 
+enum SalesInvoiceStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+enum SalesInvoicePaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
   slug        String      @unique
   description String?
   type        ProductType
-  price       Int         // store in BDT as integer (e.g., 25000)
+  price       Int // store in BDT as integer (e.g., 25000)
   stock       Int         @default(0)
   isActive    Boolean     @default(true)
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  orderItems  OrderItem[]
-  movements   InventoryMovement[]
+  orderItems        OrderItem[]
+  movements         InventoryMovement[]
+  salesInvoiceItems SalesInvoiceItem[]
 }
 
 model Order {
-  id            String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  customerName  String
-  phone         String
-  addressLine1  String
-  city          String
-  notes         String?
+  customerName String
+  phone        String
+  addressLine1 String
+  city         String
+  notes        String?
 
-  status        OrderStatus   @default(PENDING)
+  status OrderStatus @default(PENDING)
 
   paymentMethod PaymentMethod
   paymentStatus PaymentStatus @default(UNPAID)
 
-  subtotal      Int
-  deliveryFee   Int           @default(0)
-  total         Int
+  subtotal    Int
+  deliveryFee Int @default(0)
+  total       Int
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  items         OrderItem[]
-  movements     InventoryMovement[]
-
+  items     OrderItem[]
+  movements InventoryMovement[]
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   orderId   String
   productId String
 
@@ -91,8 +103,8 @@ model OrderItem {
 
   createdAt DateTime @default(now())
 
-  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product  Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([productId])
@@ -102,23 +114,76 @@ model InventoryMovement {
   id          String                @id @default(cuid())
   productId   String
   kind        InventoryMovementKind
-  quantity    Int                   // IN/OUT positive; ADJUST is signed delta
+  quantity    Int // IN/OUT positive; ADJUST is signed delta
   beforeStock Int
   afterStock  Int
   note        String?
 
   // "Document-first" future-proofing:
   // Later: SALES_INVOICE, PURCHASE_ORDER, RENTAL, etc.
-  refType     String?
-  refId       String?
+  refType String?
+  refId   String?
 
-  orderId     String?               // convenience link for current order flow
-  createdAt   DateTime              @default(now())
+  orderId   String? // convenience link for current order flow
+  createdAt DateTime @default(now())
 
-  product     Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
-  order       Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([productId, createdAt])
   @@index([orderId])
   @@index([refType, refId])
+}
+
+model SalesInvoice {
+  id        String             @id @default(cuid())
+  invoiceNo Int                @unique
+  status    SalesInvoiceStatus @default(DRAFT)
+
+  customerName String
+  phone        String?
+  addressLine1 String?
+  city         String?
+
+  notes String?
+
+  paymentMethod PaymentMethod?
+  paymentStatus SalesInvoicePaymentStatus @default(UNPAID)
+
+  subtotal    Int @default(0)
+  discount    Int @default(0)
+  deliveryFee Int @default(0)
+  total       Int @default(0)
+
+  issuedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  items SalesInvoiceItem[]
+
+  @@index([status, createdAt])
+  @@index([invoiceNo])
+}
+
+model SalesInvoiceItem {
+  id             String @id @default(cuid())
+  salesInvoiceId String
+  productId      String
+
+  titleSnapshot String
+  unitPrice     Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  salesInvoice SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([salesInvoiceId])
+  @@index([productId])
+}
+
+model InvoiceCounter {
+  id     String @id
+  nextNo Int
 }
