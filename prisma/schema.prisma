@@ -130,19 +130,20 @@ model InventoryMovement {
   orderId   String? // convenience link for current order flow
   createdAt DateTime @default(now())
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([productId, createdAt])
   @@index([orderId])
   @@index([refType, refId])
+  @@unique([refType, refId, productId, kind])
 }
 
 model SalesInvoice {
   id        String             @id @default(cuid())
   invoiceNo Int                @unique
   status    SalesInvoiceStatus @default(DRAFT)
-  orderId Order? @relation
+  order Order?
 
 
   customerName String

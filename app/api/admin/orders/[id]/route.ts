@@ -40,7 +40,7 @@ export async function PATCH(
         return { ok: false as const, status: 404 as const, error: "Order not found." };
       }
 
-      // prevent reopening cancelled orders (MVP safety)
+      // Prevent reopening cancelled orders (MVP safety)
       if (order.status === "CANCELLED" && nextStatus && nextStatus !== "CANCELLED") {
         return {
           ok: false as const,
@@ -51,24 +51,24 @@ export async function PATCH(
 
       const statusChanging = Boolean(nextStatus && nextStatus !== order.status);
 
-      // Refund stock ONLY when transitioning into CANCELLED from a non-cancelled status
+      // If moving into CANCELLED => restore stock + inventory movements
       if (statusChanging && nextStatus === "CANCELLED" && order.status !== "CANCELLED") {
         for (const it of order.items) {
           const p = await tx.product.findUnique({
             where: { id: it.productId },
             select: { stock: true },
           });
-      
+
           if (!p) continue;
-      
+
           const beforeStock = p.stock;
           const afterStock = beforeStock + it.quantity;
-      
+
           await tx.product.update({
             where: { id: it.productId },
             data: { stock: afterStock },
           });
-      
+
           await tx.inventoryMovement.create({
             data: {
               productId: it.productId,

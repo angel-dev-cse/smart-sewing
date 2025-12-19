@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-type PaymentMethod = "COD" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
+const ALLOWED_PAYMENT_METHODS = ["COD", "BKASH", "NAGAD", "BANK_TRANSFER"] as const;
+type PaymentMethod = (typeof ALLOWED_PAYMENT_METHODS)[number];
 
 export async function POST(req: Request) {
   try {
@@ -12,6 +13,7 @@ export async function POST(req: Request) {
     const addressLine1 = String(body.addressLine1 ?? "").trim();
     const city = String(body.city ?? "").trim();
     const notes = body.notes ? String(body.notes).trim() : null;
+
     const paymentMethod = body.paymentMethod as PaymentMethod;
     const deliveryFee = Number(body.deliveryFee ?? 0);
 
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing customer fields." }, { status: 400 });
     }
 
-    if (!["COD", "BKASH", "NAGAD", "BANK_TRANSFER"].includes(paymentMethod)) {
+    if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
       return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
     }
 
@@ -33,17 +35,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No items in order." }, { status: 400 });
     }
 
-    // Validate products + compute subtotal
-    const productIds = items.map((it: any) => String(it.productId));
+    // Normalize items
+    const normalizedItems = items.map((it: any) => ({
+      productId: String(it.productId),
+      quantity: Number(it.quantity),
+    }));
+
+    for (const it of normalizedItems) {
+      if (!it.productId) {
+        return NextResponse.json({ error: "Invalid product id." }, { status: 400 });
+      }
+      if (!Number.isInteger(it.quantity) || it.quantity <= 0) {
+        return NextResponse.json({ error: "Invalid quantity." }, { status: 400 });
+      }
+    }
+
+    // Fetch products (outside tx for quick validation/UI errors)
+    const productIds = normalizedItems.map((it) => it.productId);
     const products = await db.product.findMany({
       where: { id: { in: productIds }, isActive: true },
+      select: { id: true, title: true, price: true, stock: true },
     });
 
     const productMap = new Map(products.map((p) => [p.id, p]));
 
+    // Pre-check stock and build snapshot items
     let subtotal = 0;
-
-    // Build order items
     const orderItemsData: Array<{
       productId: string;
       titleSnapshot: string;
@@ -51,42 +68,32 @@ export async function POST(req: Request) {
       quantity: number;
     }> = [];
 
-    for (const it of items) {
-      const productId = String(it.productId);
-      const quantity = Number(it.quantity);
-
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        return NextResponse.json({ error: "Invalid quantity." }, { status: 400 });
-      }
-
-      const product = productMap.get(productId);
-      if (!product) {
+    for (const it of normalizedItems) {
+      const p = productMap.get(it.productId);
+      if (!p) {
         return NextResponse.json({ error: "Product not found." }, { status: 400 });
       }
-
-      if (quantity > product.stock) {
+      if (it.quantity > p.stock) {
         return NextResponse.json(
-          { error: `Not enough stock for ${product.title}.` },
+          { error: `Not enough stock for ${p.title}.` },
           { status: 400 }
         );
       }
 
-      subtotal += product.price * quantity;
-
+      subtotal += p.price * it.quantity;
       orderItemsData.push({
-        productId,
-        titleSnapshot: product.title,
-        unitPrice: product.price,
-        quantity,
+        productId: p.id,
+        titleSnapshot: p.title,
+        unitPrice: p.price,
+        quantity: it.quantity,
       });
     }
 
     const total = subtotal + deliveryFee;
 
-    // Transaction = create order + items + decrement stock
-    // Transaction = create order + items + decrement stock + write inventory movements
-    const order = await db.$transaction(async (tx) => {
-      const created = await tx.order.create({
+    const created = await db.$transaction(async (tx) => {
+      // Create order + items first
+      const order = await tx.order.create({
         data: {
           customerName,
           phone,
@@ -102,8 +109,8 @@ export async function POST(req: Request) {
         select: { id: true },
       });
 
+      // Then decrement stock + write movements
       for (const it of orderItemsData) {
-        // re-check stock inside transaction (safer than relying on pre-check)
         const p = await tx.product.findUnique({
           where: { id: it.productId },
           select: { stock: true, title: true },
@@ -128,18 +135,17 @@ export async function POST(req: Request) {
             beforeStock,
             afterStock,
             note: null,
-            orderId: created.id,
+            orderId: order.id,
             refType: "ORDER",
-            refId: created.id,
+            refId: order.id,
           },
         });
       }
 
-      return created;
+      return order;
     });
 
-
-    return NextResponse.json({ orderId: order.id });
+    return NextResponse.json({ orderId: created.id });
   } catch (e: any) {
     const msg = typeof e?.message === "string" ? e.message : "Server error.";
     return NextResponse.json({ error: msg }, { status: 500 });
