@@ -62,22 +62,22 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orderItems        OrderItem[]
-  movements         InventoryMovement[]
-  salesInvoiceItems SalesInvoiceItem[]
+  orderItems           OrderItem[]
+  movements            InventoryMovement[]
+  salesInvoiceItems    SalesInvoiceItem[]
+  stockAdjustmentItems StockAdjustmentItem[]
 }
 
 model Order {
   id String @id @default(cuid())
 
-  customerName String
-  phone        String
-  addressLine1 String
-  city         String
-  notes        String?
-  salesInvoiceId String? @unique
+  customerName   String
+  phone          String
+  addressLine1   String
+  city           String
+  notes          String?
+  salesInvoiceId String?       @unique
   salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
-
 
   status OrderStatus @default(PENDING)
 
@@ -133,18 +133,17 @@ model InventoryMovement {
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
+  @@unique([refType, refId, productId, kind])
   @@index([productId, createdAt])
   @@index([orderId])
   @@index([refType, refId])
-  @@unique([refType, refId, productId, kind])
 }
 
 model SalesInvoice {
   id        String             @id @default(cuid())
   invoiceNo Int                @unique
   status    SalesInvoiceStatus @default(DRAFT)
-  order Order?
-
+  order     Order?
 
   customerName String
   phone        String?
@@ -192,4 +191,33 @@ model SalesInvoiceItem {
 model InvoiceCounter {
   id     String @id
   nextNo Int
+}
+
+model StockAdjustment {
+  id        String   @id @default(cuid())
+  reason    String?
+  createdAt DateTime @default(now())
+
+  items StockAdjustmentItem[]
+
+  @@index([createdAt])
+}
+
+model StockAdjustmentItem {
+  id                String @id @default(cuid())
+  stockAdjustmentId String
+  productId         String
+
+  delta       Int
+  beforeStock Int
+  afterStock  Int
+  note        String?
+
+  createdAt DateTime @default(now())
+
+  stockAdjustment StockAdjustment @relation(fields: [stockAdjustmentId], references: [id], onDelete: Cascade)
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([stockAdjustmentId])
+  @@index([productId])
 }

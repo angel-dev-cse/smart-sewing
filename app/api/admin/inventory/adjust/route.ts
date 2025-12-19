@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const productId = String(body.productId ?? "");
+    const productId = String(body.productId ?? "").trim();
     const mode = body.mode === "SET" ? "SET" : "DELTA";
     const value = Number(body.value);
     const reason = body.reason ? String(body.reason).trim() : null;
@@ -40,20 +40,22 @@ export async function POST(req: Request) {
         return { ok: false as const, status: 400 as const, error: "No change in stock." };
       }
 
-      // Create adjustment group (so we can reference it cleanly)
+      // Create adjustment document
       const adj = await tx.stockAdjustment.create({
         data: { reason: reason ?? "Manual adjustment" },
         select: { id: true },
       });
 
+      // Update product stock
       await tx.product.update({
         where: { id: product.id },
         data: { stock: afterStock },
       });
 
+      // Create adjustment line item (note the field name)
       await tx.stockAdjustmentItem.create({
         data: {
-          adjustmentId: adj.id,
+          stockAdjustmentId: adj.id,
           productId: product.id,
           delta,
           beforeStock,
@@ -62,11 +64,12 @@ export async function POST(req: Request) {
         },
       });
 
+      // Write an ADJUST movement (signed quantity)
       await tx.inventoryMovement.create({
         data: {
           productId: product.id,
-          kind: delta > 0 ? "IN" : "OUT",
-          quantity: Math.abs(delta),
+          kind: "ADJUST",
+          quantity: delta, // signed
           beforeStock,
           afterStock,
           refType: "ADJUSTMENT",
