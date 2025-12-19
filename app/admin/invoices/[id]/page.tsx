@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
+import InvoiceActions from "./ui-actions";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -19,6 +20,7 @@ export default async function InvoicePage({ params }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">
+            <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
             INV-{String(invoice.invoiceNo).padStart(6, "0")}
           </h1>
           <p className="text-sm text-gray-600">
