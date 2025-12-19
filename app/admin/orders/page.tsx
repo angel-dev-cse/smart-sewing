@@ -8,6 +8,10 @@ type Props = {
   }>;
 };
 
+function formatInvNo(n: number) {
+  return `INV-${String(n).padStart(6, "0")}`;
+}
+
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const sp = (await searchParams) ?? {};
   const status = sp.status ?? "PENDING"; // default tab
@@ -34,7 +38,23 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
     },
     orderBy: { createdAt: "desc" },
     take: 50,
-    include: { items: true },
+    select: {
+      id: true,
+      createdAt: true,
+      customerName: true,
+      phone: true,
+      status: true,
+      paymentStatus: true,
+      paymentMethod: true,
+      total: true,
+
+      salesInvoiceId: true,
+      salesInvoice: {
+        select: { id: true, invoiceNo: true }, // ✅ NEW: fetch invoice number
+      },
+
+      _count: { select: { items: true } },
+    },
   });
 
   const tabs = [
@@ -82,10 +102,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
       </div>
 
       {/* Search */}
-      <form
-        action="/admin/orders"
-        className="mb-4 flex gap-2 items-center"
-      >
+      <form action="/admin/orders" className="mb-4 flex gap-2 items-center">
         <input type="hidden" name="status" value={status} />
         <input
           name="q"
@@ -98,10 +115,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
         </button>
 
         {q && (
-          <Link
-            href={searchHref("")}
-            className="text-sm underline text-gray-700"
-          >
+          <Link href={searchHref("")} className="text-sm underline text-gray-700">
             Clear
           </Link>
         )}
@@ -119,6 +133,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
               <th className="p-3">Payment</th>
               <th className="p-3">Total</th>
               <th className="p-3">Items</th>
+              <th className="p-3">Invoice</th>
             </tr>
           </thead>
 
@@ -150,13 +165,36 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   ৳ {o.total.toLocaleString()}
                 </td>
 
-                <td className="p-3 whitespace-nowrap">{o.items.length}</td>
+                <td className="p-3 whitespace-nowrap">{o._count.items}</td>
+
+                <td className="p-3 whitespace-nowrap">
+                  {o.salesInvoice ? (
+                    <div className="flex flex-col">
+                      <Link
+                        className="underline font-mono text-sm"
+                        href={`/admin/invoices/${o.salesInvoice.id}`}
+                      >
+                        {formatInvNo(o.salesInvoice.invoiceNo)}
+                      </Link>
+                      <a
+                        className="underline text-xs text-gray-600"
+                        href={`/admin/invoices/${o.salesInvoice.id}/print`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Print
+                      </a>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
               </tr>
             ))}
 
             {orders.length === 0 && (
               <tr>
-                <td className="p-3" colSpan={7}>
+                <td className="p-3" colSpan={8}>
                   No matching orders.
                 </td>
               </tr>
@@ -165,9 +203,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
         </table>
       </div>
 
-      <p className="text-xs text-gray-600 mt-3">
-        Showing latest 50 orders.
-      </p>
+      <p className="text-xs text-gray-600 mt-3">Showing latest 50 orders.</p>
     </div>
   );
 }
