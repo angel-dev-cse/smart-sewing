@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-12 gap-6">
-      <aside className="col-span-12 md:col-span-3">
+      <aside className="col-span-12 md:col-span-3 print:hidden">
         <div className="rounded border bg-white p-4">
           <p className="font-bold mb-3">Admin</p>
 

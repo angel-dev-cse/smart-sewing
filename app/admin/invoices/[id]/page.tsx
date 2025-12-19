@@ -27,6 +27,15 @@ export default async function InvoicePage({ params }: Props) {
             Status: <span className="font-semibold">{invoice.status}</span>
           </p>
         </div>
+        <a
+          className="underline text-sm"
+          href={`/admin/invoices/${invoice.id}/print`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Print
+        </a>
+
         <Link className="underline" href="/admin/invoices">
           ← Back
         </Link>

@@ -11,7 +11,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-gray-50 text-gray-900">
         <CartProvider>
-          <header className="border-b bg-white">
+          <header className="border-b bg-white print:hidden">
             <div className="mx-auto max-w-7xl px-4 py-4 flex gap-6">
               <Link href="/" className="font-bold">
                 Smart Sewing Solutions
