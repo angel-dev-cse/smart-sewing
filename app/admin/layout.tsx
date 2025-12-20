@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block underline" href="/admin/invoices">
               Invoices
             </Link>
-            <Link className="block underline" href="/admin/inventory/movement">Movements</Link>
+            <Link className="block underline" href="/admin/inventory/movements">Movements</Link>
             <Link className="block underline" href="/admin/inventory/adjustments">Adjustments</Link>
             <Link className="block underline" href="/admin/inventory/adjust">Adjust</Link>
             <Link className="block underline" href="/shop">
