@@ -66,6 +66,24 @@ enum LedgerEntryDirection {
   OUT
 }
 
+enum RentalContractStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum RentalBillStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+enum RentalBillPaymentStatus {
+  UNPAID
+  PAID
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -83,6 +101,8 @@ model Product {
   movements            InventoryMovement[]
   salesInvoiceItems    SalesInvoiceItem[]
   stockAdjustmentItems StockAdjustmentItem[]
+  rentalContractItems  RentalContractItem[]
+  rentalBillItems      RentalBillItem[]
 }
 
 model Order {
@@ -240,11 +260,11 @@ model StockAdjustmentItem {
 }
 
 model LedgerAccount {
-  id             String           @id @default(cuid())
-  name           String           @unique
+  id             String            @id @default(cuid())
+  name           String            @unique
   kind           LedgerAccountKind
-  openingBalance Int              @default(0)
-  isActive       Boolean          @default(true)
+  openingBalance Int               @default(0)
+  isActive       Boolean           @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -255,10 +275,10 @@ model LedgerAccount {
 }
 
 model LedgerCategory {
-  id       String            @id @default(cuid())
-  name     String            @unique
+  id       String             @id @default(cuid())
+  name     String             @unique
   kind     LedgerCategoryKind
-  isActive Boolean           @default(true)
+  isActive Boolean            @default(true)
 
   createdAt DateTime @default(now())
 
@@ -268,14 +288,14 @@ model LedgerCategory {
 }
 
 model LedgerEntry {
-  id         String              @id @default(cuid())
+  id         String  @id @default(cuid())
   accountId  String
   categoryId String?
 
   direction  LedgerEntryDirection
-  amount     Int                 // BDT integer only (e.g., 5500)
+  amount     Int // BDT integer only (e.g., 5500)
   note       String?
-  occurredAt DateTime            @default(now())
+  occurredAt DateTime             @default(now())
 
   // future-proof: link to invoices/orders/etc
   refType String?
@@ -283,10 +303,99 @@ model LedgerEntry {
 
   createdAt DateTime @default(now())
 
-  account  LedgerAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  account  LedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Restrict)
   category LedgerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([accountId, occurredAt])
   @@index([categoryId, occurredAt])
   @@index([refType, refId])
+}
+
+model RentalContract {
+  id         String               @id @default(cuid())
+  contractNo Int                  @unique
+  status     RentalContractStatus @default(DRAFT)
+
+  customerName String
+  phone        String?
+  addressLine1 String?
+  city         String?
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  deposit Int     @default(0)
+  notes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items RentalContractItem[]
+  bills RentalBill[]
+
+  @@index([status, createdAt])
+  @@index([contractNo])
+}
+
+model RentalContractItem {
+  id               String @id @default(cuid())
+  rentalContractId String
+  productId        String
+
+  titleSnapshot String
+  monthlyRate   Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  rentalContract RentalContract @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([rentalContractId])
+  @@index([productId])
+}
+
+model RentalBill {
+  id               String @id @default(cuid())
+  billNo           Int    @unique
+  rentalContractId String
+
+  status        RentalBillStatus        @default(DRAFT)
+  paymentStatus RentalBillPaymentStatus @default(UNPAID)
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  subtotal Int @default(0)
+  total    Int @default(0)
+
+  issuedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  items RentalBillItem[]
+
+  rentalContract RentalContract @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
+
+  @@index([rentalContractId, createdAt])
+  @@index([status, createdAt])
+  @@index([billNo])
+}
+
+model RentalBillItem {
+  id           String @id @default(cuid())
+  rentalBillId String
+  productId    String
+
+  titleSnapshot String
+  monthlyRate   Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  rentalBill RentalBill @relation(fields: [rentalBillId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([rentalBillId])
+  @@index([productId])
 }
