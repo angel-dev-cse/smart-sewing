@@ -49,6 +49,23 @@ enum SalesInvoicePaymentStatus {
   PAID
 }
 
+enum LedgerAccountKind {
+  CASH
+  BKASH
+  NAGAD
+  BANK
+}
+
+enum LedgerCategoryKind {
+  EXPENSE
+  INCOME
+}
+
+enum LedgerEntryDirection {
+  IN
+  OUT
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -220,4 +237,56 @@ model StockAdjustmentItem {
 
   @@index([stockAdjustmentId])
   @@index([productId])
+}
+
+model LedgerAccount {
+  id             String           @id @default(cuid())
+  name           String           @unique
+  kind           LedgerAccountKind
+  openingBalance Int              @default(0)
+  isActive       Boolean          @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries LedgerEntry[]
+
+  @@index([kind, isActive])
+}
+
+model LedgerCategory {
+  id       String            @id @default(cuid())
+  name     String            @unique
+  kind     LedgerCategoryKind
+  isActive Boolean           @default(true)
+
+  createdAt DateTime @default(now())
+
+  entries LedgerEntry[]
+
+  @@index([kind, isActive])
+}
+
+model LedgerEntry {
+  id         String              @id @default(cuid())
+  accountId  String
+  categoryId String?
+
+  direction  LedgerEntryDirection
+  amount     Int                 // BDT integer only (e.g., 5500)
+  note       String?
+  occurredAt DateTime            @default(now())
+
+  // future-proof: link to invoices/orders/etc
+  refType String?
+  refId   String?
+
+  createdAt DateTime @default(now())
+
+  account  LedgerAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category LedgerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, occurredAt])
+  @@index([categoryId, occurredAt])
+  @@index([refType, refId])
 }

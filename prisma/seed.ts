@@ -30,6 +30,61 @@ async function main() {
       isActive: true,
     },
   });
+
+  // --- Ledger accounts ---
+  await db.ledgerAccount.upsert({
+    where: { name: "Cash" },
+    update: {},
+    create: { name: "Cash", kind: "CASH", openingBalance: 0 },
+  });
+
+  await db.ledgerAccount.upsert({
+    where: { name: "bKash" },
+    update: {},
+    create: { name: "bKash", kind: "BKASH", openingBalance: 0 },
+  });
+
+  await db.ledgerAccount.upsert({
+    where: { name: "Nagad" },
+    update: {},
+    create: { name: "Nagad", kind: "NAGAD", openingBalance: 0 },
+  });
+
+  await db.ledgerAccount.upsert({
+    where: { name: "Bank" },
+    update: {},
+    create: { name: "Bank", kind: "BANK", openingBalance: 0 },
+  });
+
+  // --- Expense categories ---
+  const expenseCats = [
+    "Salary",
+    "Parts Purchase",
+    "Machine Service/Repair",
+    "Travel/Transport",
+    "Shop Rent",
+    "Utilities (Electric/Internet)",
+    "Misc",
+  ];
+
+  for (const name of expenseCats) {
+    await db.ledgerCategory.upsert({
+      where: { name },
+      update: {},
+      create: { name, kind: "EXPENSE" },
+    });
+  }
+
+  // --- Income categories ---
+  const incomeCats = ["Customer Payment", "Owner Deposit"];
+  for (const name of incomeCats) {
+    await db.ledgerCategory.upsert({
+      where: { name },
+      update: {},
+      create: { name, kind: "INCOME" },
+    });
+  }
+
 }
 
 main()
