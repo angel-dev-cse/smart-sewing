@@ -20,6 +20,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block underline" href="/admin/rental-bills">
               Rental Bills
             </Link>
+            <Link href="/admin/purchase-bills" className="block underline">
+              Purchase Bills
+            </Link>
+
             <Link className="block underline" href="/admin/pos">
               POS
             </Link>

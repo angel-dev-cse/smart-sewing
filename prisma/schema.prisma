@@ -84,6 +84,12 @@ enum RentalBillPaymentStatus {
   PAID
 }
 
+enum PurchaseBillStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -103,6 +109,7 @@ model Product {
   stockAdjustmentItems StockAdjustmentItem[]
   rentalContractItems  RentalContractItem[]
   rentalBillItems      RentalBillItem[]
+  purchaseBillItems    PurchaseBillItem[]
 }
 
 model Order {
@@ -397,5 +404,45 @@ model RentalBillItem {
   product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([rentalBillId])
+  @@index([productId])
+}
+
+model PurchaseBill {
+  id     String             @id @default(cuid())
+  billNo Int                @unique
+  status PurchaseBillStatus @default(DRAFT)
+
+  supplierName String
+  phone        String?
+  notes        String?
+
+  subtotal Int @default(0)
+  total    Int @default(0)
+
+  issuedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  items PurchaseBillItem[]
+
+  @@index([status, createdAt])
+  @@index([billNo])
+}
+
+model PurchaseBillItem {
+  id             String @id @default(cuid())
+  purchaseBillId String
+  productId      String
+
+  titleSnapshot String
+  unitCost      Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  purchaseBill PurchaseBill @relation(fields: [purchaseBillId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseBillId])
   @@index([productId])
 }
