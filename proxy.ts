@@ -1,34 +1,35 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function proxy(req: NextRequest) {
-  const { pathname, search } = req.nextUrl;
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  const isAdminPage = pathname.startsWith("/admin");
-  const isAdminApi = pathname.startsWith("/api/admin");
+  // Only protect /admin routes (but allow the login page + login API)
+  const isAdminRoute = pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
+  const isLoginRoute = pathname.startsWith("/admin/login") || pathname.startsWith("/api/admin/login");
 
-  if (!isAdminPage && !isAdminApi) return NextResponse.next();
-
-  // Allow login endpoint + login page
-  if (pathname === "/admin/login") return NextResponse.next();
-  if (pathname === "/api/admin/login") return NextResponse.next();
-  if (pathname === "/api/admin/logout") return NextResponse.next();
+  if (!isAdminRoute || isLoginRoute) {
+    return NextResponse.next();
+  }
 
   const authed = req.cookies.get("admin-auth")?.value === "true";
 
-  if (authed) return NextResponse.next();
+  if (!authed) {
+    // Browser pages: redirect to admin login
+    if (pathname.startsWith("/admin")) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin/login";
+      return NextResponse.redirect(url);
+    }
 
-  // API requests should not redirect; return 401 JSON
-  if (isAdminApi) {
+    // API routes: return 401 JSON
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Page requests redirect to login with ?next=
-  const loginUrl = new URL("/admin/login", req.url);
-  loginUrl.searchParams.set("next", pathname + search);
-  return NextResponse.redirect(loginUrl);
+  return NextResponse.next();
 }
 
+// Match both page routes + API routes for admin
 export const config = {
   matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
