@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       return { ok: true as const, afterStock };
     });
 
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: (result as any).status });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
     return NextResponse.json({ ok: true, afterStock: result.afterStock });
   } catch {

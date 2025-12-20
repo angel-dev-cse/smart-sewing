@@ -18,13 +18,13 @@ export default async function AdminRentalBillsPage({ searchParams }: Props) {
   const payment = (sp.payment ?? "ALL").toUpperCase();
   const q = (sp.q ?? "").trim();
 
-  const statusFilter = STATUSES.includes(status as any) ? status : "ISSUED";
-  const paymentFilter = PAYMENTS.includes(payment as any) ? payment : "ALL";
+  const statusFilter = STATUSES.includes(status as "ALL" | "DRAFT" | "ISSUED" | "CANCELLED") ? status as "DRAFT" | "ISSUED" | "CANCELLED" : "ISSUED";
+  const paymentFilter = PAYMENTS.includes(payment as "ALL" | "UNPAID" | "PAID") ? payment as "UNPAID" | "PAID" : "ALL";
 
   const bills = await db.rentalBill.findMany({
     where: {
-      ...(statusFilter !== "ALL" ? { status: statusFilter as any } : {}),
-      ...(paymentFilter !== "ALL" ? { paymentStatus: paymentFilter as any } : {}),
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(paymentFilter !== "ALL" ? { paymentStatus: paymentFilter } : {}),
       ...(q
         ? {
             OR: [

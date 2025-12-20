@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function OrderInvoiceActions({
   orderId,
@@ -40,9 +41,9 @@ export default function OrderInvoiceActions({
   if (salesInvoiceId) {
     return (
       <div className="flex gap-3">
-        <a className="underline text-sm" href={`/admin/invoices/${salesInvoiceId}`}>
+        <Link className="underline text-sm" href={`/admin/invoices/${salesInvoiceId}`}>
           Open invoice
-        </a>
+        </Link>
         <a
           className="underline text-sm"
           href={`/admin/invoices/${salesInvoiceId}/print`}

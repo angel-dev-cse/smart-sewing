@@ -74,8 +74,8 @@ export async function POST(
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "Server error.";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

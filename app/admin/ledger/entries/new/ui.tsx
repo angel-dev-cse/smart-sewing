@@ -133,7 +133,7 @@ export default function NewLedgerEntryForm({
             <select
               className="w-full border rounded px-3 py-2"
               value={direction}
-              onChange={(e) => setDirection(e.target.value as any)}
+              onChange={(e) => setDirection(e.target.value as "IN" | "OUT")}
             >
               <option value="OUT">OUT (expense)</option>
               <option value="IN">IN (income)</option>

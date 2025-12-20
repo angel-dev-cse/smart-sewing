@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import AdjustStockForm from "./ui";
 
@@ -20,9 +21,9 @@ export default async function AdjustInventoryPage() {
       <AdjustStockForm products={products} />
 
       <div className="text-sm">
-        <a className="underline" href="/admin/inventory/movement">
+        <Link className="underline" href="/admin/inventory/movements">
           View movements
-        </a>
+        </Link>
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ export default function InventoryAdjustForm({ productId }: { productId: string }
         <select
           className="border rounded px-3 py-2 text-sm"
           value={action}
-          onChange={(e) => setAction(e.target.value as any)}
+          onChange={(e) => setAction(e.target.value as "IN" | "OUT" | "SET")}
         >
           <option value="IN">Add stock (IN)</option>
           <option value="OUT">Remove stock (OUT)</option>

@@ -49,7 +49,7 @@ export default async function InventoryMovementsPage({ searchParams }: Props) {
   const movements = await db.inventoryMovement.findMany({
     where: {
       ...(productId ? { productId } : {}),
-      ...(kindFilter ? { kind: kindFilter as any } : {}),
+      ...(kindFilter ? { kind: kindFilter as "IN" | "OUT" | "ADJUST" } : {}),
       ...(q
         ? {
             OR: [

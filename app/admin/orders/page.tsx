@@ -26,7 +26,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
 
   const orders = await db.order.findMany({
     where: {
-      ...(statusFilter ? { status: statusFilter as any } : {}),
+      ...(statusFilter ? { status: statusFilter as "PENDING" | "CONFIRMED" | "CANCELLED" } : {}),
       ...(q
         ? {
             OR: [

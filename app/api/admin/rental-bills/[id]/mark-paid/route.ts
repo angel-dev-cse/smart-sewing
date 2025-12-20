@@ -8,7 +8,7 @@ export async function POST(
   try {
     const { id } = await params;
 
-    let body: any = {};
+    let body: Record<string, unknown> = {};
     try {
       body = await req.json();
     } catch {
@@ -78,8 +78,8 @@ export async function POST(
 
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "Server error.";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

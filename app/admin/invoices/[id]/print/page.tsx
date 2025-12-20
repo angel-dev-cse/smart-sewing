@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import PrintButton from "./PrintButton";
+import Link from "next/link";
 
 
 type Props = { params: Promise<{ id: string }> };
@@ -25,9 +26,9 @@ export default async function InvoicePrintPage({ params }: Props) {
       <div className="flex justify-between items-center mb-6 print:hidden">
         <PrintButton />
 
-        <a className="underline text-sm" href={`/admin/invoices/${invoice.id}`}>
-          Back
-        </a>
+        <Link className="underline text-sm" href={`/admin/invoices/${invoice.id}`}>
+          Back to invoice
+        </Link>
       </div>
 
       {/* Header */}

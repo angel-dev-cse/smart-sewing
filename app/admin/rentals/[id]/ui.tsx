@@ -21,7 +21,7 @@ export default function RentalActions({
   const [periodStart, setPeriodStart] = useState<string>("");
   const [periodEnd, setPeriodEnd] = useState<string>("");
 
-  async function post(url: string, body?: any) {
+  async function post(url: string, body?: Record<string, unknown>) {
     setError(null);
     const res = await fetch(url, {
       method: "POST",
@@ -39,8 +39,8 @@ export default function RentalActions({
     try {
       await post(`/api/admin/rentals/${contractId}/activate`);
       router.refresh();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(null);
     }
@@ -51,8 +51,8 @@ export default function RentalActions({
     try {
       await post(`/api/admin/rentals/${contractId}/close`);
       router.refresh();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(null);
     }
@@ -67,10 +67,10 @@ export default function RentalActions({
         return;
       }
 
-      const data = await post(`/api/admin/rentals/${contractId}/bills`, {
-        periodStart,
-        periodEnd,
-      });
+      // const data = await post(`/api/admin/rentals/${contractId}/bills`, {
+      //   periodStart,
+      //   periodEnd,
+      // });
 
       // For now we just refresh the contract page list
       router.refresh();
@@ -81,8 +81,8 @@ export default function RentalActions({
 
       // data.id exists (bill id) if you want later to navigate
       // router.push(`/admin/rentals/${contractId}`) is current page anyway
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(null);
     }

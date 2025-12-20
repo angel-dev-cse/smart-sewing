@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
+type InvoiceItemInput = {
+  productId: unknown;
+  quantity: unknown;
+  unitPriceOverride?: unknown;
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -22,7 +28,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid discount" }, { status: 400 });
     if (items.length === 0) return NextResponse.json({ error: "No items" }, { status: 400 });
 
-    const productIds = items.map((it: any) => String(it.productId));
+    const productIds = items.map((it: InvoiceItemInput) => String(it.productId));
     const products = await db.product.findMany({
       where: { id: { in: productIds }, isActive: true },
     });
@@ -93,10 +99,10 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ id: created.id, invoiceNo: created.invoiceNo });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e);
     return NextResponse.json(
-      { error: e?.message ?? "Server error" },
+      { error: e instanceof Error ? e.message : "Server error" },
       { status: 500 }
     );
   }

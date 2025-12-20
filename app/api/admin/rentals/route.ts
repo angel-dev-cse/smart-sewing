@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
+type RentalItemInput = {
+  productId: unknown;
+  quantity: unknown;
+  monthlyRate: unknown;
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -25,7 +31,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No items." }, { status: 400 });
     }
 
-    const normalized = items.map((it: any) => ({
+    const normalized: Array<{
+      productId: string;
+      quantity: number;
+      monthlyRate: number;
+    }> = items.map((it: RentalItemInput) => ({
       productId: String(it.productId ?? "").trim(),
       quantity: Number(it.quantity),
       monthlyRate: Number(it.monthlyRate),

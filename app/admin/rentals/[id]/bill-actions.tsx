@@ -35,7 +35,7 @@ export default function BillActions({
 
   const [accountId, setAccountId] = useState<string>(defaultAccountId);
 
-  async function post(url: string, body?: any) {
+  async function post(url: string, body?: Record<string, unknown>) {
     setError(null);
     const res = await fetch(url, {
       method: "POST",
@@ -53,8 +53,8 @@ export default function BillActions({
     try {
       await post(`/api/admin/rental-bills/${billId}/issue`);
       router.refresh();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(null);
     }
@@ -65,8 +65,8 @@ export default function BillActions({
     try {
       await post(`/api/admin/rental-bills/${billId}/cancel`);
       router.refresh();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(null);
     }
@@ -83,8 +83,8 @@ export default function BillActions({
 
       await post(`/api/admin/rental-bills/${billId}/mark-paid`, { accountId });
       router.refresh();
-    } catch (e: any) {
-      setError(e?.message ?? "Failed");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(null);
     }

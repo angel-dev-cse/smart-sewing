@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 const ALLOWED_PAYMENT_METHODS = ["COD", "BKASH", "NAGAD", "BANK_TRANSFER"] as const;
 type PaymentMethod = (typeof ALLOWED_PAYMENT_METHODS)[number];
 
+type OrderItemInput = {
+  productId: unknown;
+  quantity: unknown;
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -36,7 +41,10 @@ export async function POST(req: Request) {
     }
 
     // Normalize items
-    const normalizedItems = items.map((it: any) => ({
+    const normalizedItems: Array<{
+      productId: string;
+      quantity: number;
+    }> = items.map((it: OrderItemInput) => ({
       productId: String(it.productId),
       quantity: Number(it.quantity),
     }));
@@ -146,8 +154,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ orderId: created.id });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "Server error.";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
