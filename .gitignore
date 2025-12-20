@@ -50,3 +50,7 @@ prisma/dev.db-journal
 # OS
 .DS_Store
 Thumbs.db
+
+# Personal Files
+command.md
+*.zip

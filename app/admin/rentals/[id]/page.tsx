@@ -25,6 +25,13 @@ export default async function RentalDetailPage({ params }: Props) {
     },
   });
 
+  const accounts = await db.ledgerAccount.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, kind: true },
+  });
+
+
   if (!contract) notFound();
 
   const monthlyTotal = contract.items.reduce(
@@ -147,7 +154,12 @@ export default async function RentalDetailPage({ params }: Props) {
               <tbody>
                 {contract.bills.map((b) => (
                   <tr key={b.id} className="border-t">
-                    <td className="p-3 font-mono">#{b.billNo}</td>
+                    <td className="p-3 font-mono">
+                      <Link className="underline" href={`/admin/rental-bills/${b.id}`}>
+                        #{b.billNo}
+                      </Link>
+                    </td>
+
                     <td className="p-3 whitespace-nowrap">
                       {new Date(b.periodStart).toLocaleDateString()} →{" "}
                       {new Date(b.periodEnd).toLocaleDateString()}
@@ -161,7 +173,13 @@ export default async function RentalDetailPage({ params }: Props) {
                       {new Date(b.createdAt).toLocaleString()}
                     </td>
                     <td className="p-3 whitespace-nowrap text-right">
-                      <BillActions billId={b.id} status={b.status} paymentStatus={b.paymentStatus} />
+                      <BillActions
+                        billId={b.id}
+                        status={b.status}
+                        paymentStatus={b.paymentStatus}
+                        accounts={accounts}
+                      />
+
                     </td>
                   </tr>
                 ))}

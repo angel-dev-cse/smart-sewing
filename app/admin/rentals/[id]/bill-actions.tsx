@@ -1,23 +1,39 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type BillStatus = "DRAFT" | "ISSUED" | "CANCELLED";
 type PaymentStatus = "UNPAID" | "PAID";
+
+type LedgerAccountOption = {
+  id: string;
+  name: string;
+  kind: string;
+};
 
 export default function BillActions({
   billId,
   status,
   paymentStatus,
+  accounts,
 }: {
   billId: string;
   status: BillStatus;
   paymentStatus: PaymentStatus;
+  accounts: LedgerAccountOption[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<null | "issue" | "cancel" | "paid">(null);
   const [error, setError] = useState<string | null>(null);
+
+  const defaultAccountId = useMemo(() => {
+    // Prefer CASH if present, else first account
+    const cash = accounts.find((a) => a.kind === "CASH") ?? accounts.find((a) => a.name.toUpperCase().includes("CASH"));
+    return (cash ?? accounts[0])?.id ?? "";
+  }, [accounts]);
+
+  const [accountId, setAccountId] = useState<string>(defaultAccountId);
 
   async function post(url: string, body?: any) {
     setError(null);
@@ -59,9 +75,13 @@ export default function BillActions({
   async function markPaid() {
     setLoading("paid");
     try {
-      // Your backend currently supports marking paid without an accountId.
-      // If you later want to require an accountId, add a dropdown here and send it.
-      await post(`/api/admin/rental-bills/${billId}/mark-paid`);
+      if (!accountId) {
+        setError("Please select a ledger account.");
+        setLoading(null);
+        return;
+      }
+
+      await post(`/api/admin/rental-bills/${billId}/mark-paid`, { accountId });
       router.refresh();
     } catch (e: any) {
       setError(e?.message ?? "Failed");
@@ -81,6 +101,34 @@ export default function BillActions({
 
   return (
     <div className="inline-flex flex-col items-end gap-1">
+      {status === "ISSUED" && (
+        <div className="flex flex-col items-end gap-2 w-[220px]">
+          <select
+            className="w-full border rounded px-2 py-1 text-xs bg-white"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            disabled={loading !== null}
+            title="Which account received the payment?"
+          >
+            {accounts.length === 0 ? (
+              <option value="">No ledger accounts</option>
+            ) : (
+              accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.kind})
+                </option>
+              ))
+            )}
+          </select>
+
+          {accounts.length === 0 && (
+            <p className="text-[11px] text-gray-600">
+              Create at least one Ledger Account first (Admin → Ledger).
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="inline-flex flex-wrap gap-2 justify-end">
         {status === "DRAFT" && (
           <button
@@ -98,7 +146,7 @@ export default function BillActions({
             <button
               type="button"
               onClick={markPaid}
-              disabled={loading !== null}
+              disabled={loading !== null || accounts.length === 0}
               className="rounded bg-black px-3 py-1 text-white text-xs disabled:opacity-60"
             >
               {loading === "paid" ? "Saving..." : "Mark paid"}
