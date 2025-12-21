@@ -103,7 +103,8 @@
 
 > This is the “contact management” layer that makes everything linkable later.
 
-
+#### Concerns
+* Not auto filling all fileds in rental contracts when selecting a party from the dropdown list
 ---
 
 ### 🟡 PHASE 7D — Returns, Corrections, Write-offs (Very important)

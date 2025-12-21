@@ -10,7 +10,7 @@ export default async function InvoicePage({ params }: Props) {
 
   const invoice = await db.salesInvoice.findUnique({
     where: { id },
-    include: { items: true },
+    include: { items: true, party: { select: { id: true, name: true } } },
   });
 
   if (!invoice) notFound();
@@ -43,6 +43,14 @@ export default async function InvoicePage({ params }: Props) {
 
       <div className="rounded border bg-white p-4 space-y-1">
         <p><span className="font-semibold">Customer:</span> {invoice.customerName}</p>
+        {invoice.party ? (
+          <p className="text-sm">
+            <span className="font-semibold">Linked contact:</span>{" "}
+            <Link className="underline" href={`/admin/parties/${invoice.party.id}`}>
+              {invoice.party.name}
+            </Link>
+          </p>
+        ) : null}
         {invoice.phone && <p><span className="font-semibold">Phone:</span> {invoice.phone}</p>}
         {invoice.city && <p><span className="font-semibold">City:</span> {invoice.city}</p>}
         {invoice.addressLine1 && <p><span className="font-semibold">Address:</span> {invoice.addressLine1}</p>}

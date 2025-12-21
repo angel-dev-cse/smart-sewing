@@ -93,6 +93,7 @@ enum PurchaseBillStatus {
 enum PartyType {
   CUSTOMER
   SUPPLIER
+  BOTH
 }
 
 enum PurchasePaymentMethod {
@@ -499,7 +500,11 @@ model Party {
   phone   String?
   email   String?
   address String?
+  companyName String?
   notes   String?
+
+  // Optional labels/tags for quick filtering/search later (e.g. "wholesale", "VIP")
+  tags    String[]  @default([])
 
   isActive Boolean @default(true)
 

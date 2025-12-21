@@ -30,10 +30,14 @@ export default async function PurchaseBillsPage() {
           <tbody>
             {bills.map((b) => (
               <tr key={b.id} className="border-t">
-                <td className="p-3 font-mono">#{b.billNo}</td>
+                <td className="p-3 font-mono">
+                  <Link className="underline" href={`/admin/purchase-bills/${b.id}`}>
+                    PB-{String(b.billNo).padStart(6, "0")}
+                  </Link>
+                </td>
                 <td className="p-3">{b.supplierName}</td>
                 <td className="p-3 font-mono">{b.status}</td>
-                <td className="p-3 font-semibold">৳ {b.total}</td>
+                <td className="p-3 font-semibold">৳ {b.total.toLocaleString()}</td>
                 <td className="p-3 whitespace-nowrap">
                   {new Date(b.createdAt).toLocaleString()}
                 </td>

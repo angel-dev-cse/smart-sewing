@@ -4,12 +4,19 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 type P = { id: string; title: string; stock: number };
+type Party = { id: string; name: string; phone: string | null; type: "CUSTOMER" | "SUPPLIER" | "BOTH" };
 
-export default function NewRentalForm({ products }: { products: P[] }) {
+export default function NewRentalForm({ products, parties }: { products: P[]; parties: Party[] }) {
   const router = useRouter();
+
+  const customerOptions = useMemo(() => {
+    // Rentals: customers are CUSTOMER or BOTH
+    return parties.filter((p) => p.type === "CUSTOMER" || p.type === "BOTH");
+  }, [parties]);
 
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [partyId, setPartyId] = useState<string>("");
   const [addressLine1, setAddressLine1] = useState("");
   const [city, setCity] = useState("Chittagong");
   const [deposit, setDeposit] = useState<number>(0);
@@ -23,6 +30,15 @@ export default function NewRentalForm({ products }: { products: P[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+
+  function onSelectParty(id: string) {
+    setPartyId(id);
+    const p = customerOptions.find((x) => x.id === id);
+    if (p) {
+      setCustomerName(p.name);
+      setPhone(p.phone ?? "");
+    }
+  }
 
   function updateRow(i: number, patch: Partial<(typeof rows)[number]>) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -67,6 +83,7 @@ export default function NewRentalForm({ products }: { products: P[] }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          partyId: partyId || null,
           customerName: customerName.trim(),
           phone: phone.trim() || null,
           addressLine1: addressLine1.trim() || null,
@@ -105,6 +122,27 @@ export default function NewRentalForm({ products }: { products: P[] }) {
       </div>
 
       <form onSubmit={submit} className="rounded border bg-white p-4 space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Customer / Contact (optional)</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={partyId}
+            onChange={(e) => onSelectParty(e.target.value)}
+            disabled={loading}
+          >
+            <option value="">— Select customer contact (optional) —</option>
+            {customerOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.phone ? ` (${p.phone})` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-600 mt-1">
+            Selecting a contact will auto-fill name and phone.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1">Customer name</label>

@@ -13,6 +13,7 @@ export default async function RentalDetailPage({ params }: Props) {
   const contract = await db.rentalContract.findUnique({
     where: { id },
     include: {
+      party: { select: { id: true, name: true } },
       items: {
         include: {
           product: { select: { title: true, stock: true } },
@@ -73,6 +74,14 @@ export default async function RentalDetailPage({ params }: Props) {
         <div className="rounded border bg-white p-4">
           <p className="font-semibold mb-2">Customer</p>
           <p>{contract.customerName}</p>
+          {contract.party ? (
+            <p className="text-xs text-gray-600 mt-1">
+              Linked contact:{" "}
+              <Link className="underline" href={`/admin/parties/${contract.party.id}`}>
+                {contract.party.name}
+              </Link>
+            </p>
+          ) : null}
           {contract.phone && <p className="text-sm text-gray-700">{contract.phone}</p>}
           {contract.addressLine1 && (
             <p className="text-sm text-gray-700 mt-2">{contract.addressLine1}</p>

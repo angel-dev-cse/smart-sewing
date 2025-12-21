@@ -8,5 +8,11 @@ export default async function NewRentalPage() {
     select: { id: true, title: true, stock: true },
   });
 
-  return <NewRentalForm products={products} />;
+  const parties = await db.party.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, phone: true, type: true },
+  });
+
+  return <NewRentalForm products={products} parties={parties} />;
 }

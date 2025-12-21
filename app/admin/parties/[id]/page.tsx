@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ q?: string; kind?: string }>;
+};
 
 type TimelineItem = {
   kind: "SALES_INVOICE" | "PURCHASE_BILL" | "RENTAL_CONTRACT" | "RENTAL_BILL";
@@ -15,8 +18,11 @@ type TimelineItem = {
   href: string;
 };
 
-export default async function PartyDetailPage({ params }: Props) {
+export default async function PartyDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  const q = String(sp.q ?? "").trim();
+  const kind = String(sp.kind ?? "ALL").toUpperCase();
 
   const party = await db.party.findUnique({
     where: { id },
@@ -28,6 +34,18 @@ export default async function PartyDetailPage({ params }: Props) {
   });
 
   if (!party) notFound();
+
+  const KIND_TABS = [
+    { key: "ALL", label: "All" },
+    { key: "SALES_INVOICE", label: "Sales" },
+    { key: "PURCHASE_BILL", label: "Purchases" },
+    { key: "RENTAL_CONTRACT", label: "Rentals" },
+    { key: "RENTAL_BILL", label: "Rental bills" },
+  ] as const;
+
+  const kindFilter = (KIND_TABS.some((t) => t.key === kind) ? kind : "ALL") as (typeof KIND_TABS)[number]["key"];
+
+  const pad6 = (n: number) => String(n).padStart(6, "0");
 
   // Rental bills are linked to a contract, not directly to party.
   const contractIds = party.rentalContracts.map((c) => c.id);
@@ -44,7 +62,7 @@ export default async function PartyDetailPage({ params }: Props) {
     ...party.salesInvoices.map((s) => ({
       kind: "SALES_INVOICE" as const,
       id: s.id,
-      label: `Invoice #${s.invoiceNo}`,
+      label: `INV-${pad6(s.invoiceNo)}`,
       status: s.status,
       paymentStatus: s.paymentStatus,
       total: s.total,
@@ -54,7 +72,7 @@ export default async function PartyDetailPage({ params }: Props) {
     ...party.purchaseBills.map((p) => ({
       kind: "PURCHASE_BILL" as const,
       id: p.id,
-      label: `Purchase #${p.billNo}`,
+      label: `PB-${pad6(p.billNo)}`,
       status: p.status,
       paymentStatus: undefined,
       total: p.total,
@@ -64,7 +82,7 @@ export default async function PartyDetailPage({ params }: Props) {
     ...party.rentalContracts.map((r) => ({
       kind: "RENTAL_CONTRACT" as const,
       id: r.id,
-      label: `Rental Contract #${r.contractNo}`,
+      label: `RC-${pad6(r.contractNo)}`,
       status: r.status,
       paymentStatus: undefined,
       total: undefined,
@@ -74,7 +92,7 @@ export default async function PartyDetailPage({ params }: Props) {
     ...rentalBills.map((b) => ({
       kind: "RENTAL_BILL" as const,
       id: b.id,
-      label: `Rental Bill #${b.billNo}`,
+      label: `RB-${pad6(b.billNo)}`,
       status: b.status,
       paymentStatus: b.paymentStatus,
       total: b.total,
@@ -82,6 +100,21 @@ export default async function PartyDetailPage({ params }: Props) {
       href: `/admin/rental-bills/${b.id}`,
     })),
   ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+  const filtered = timeline.filter((t) => {
+    if (kindFilter !== "ALL" && t.kind !== kindFilter) return false;
+    if (!q) return true;
+    const hay = `${t.label} ${t.kind} ${t.status ?? ""} ${t.paymentStatus ?? ""}`.toLowerCase();
+    return hay.includes(q.toLowerCase());
+  });
+
+  function href(nextKind: string, nextQ: string) {
+    const params = new URLSearchParams();
+    if (nextKind && nextKind !== "ALL") params.set("kind", nextKind);
+    if (nextQ.trim()) params.set("q", nextQ.trim());
+    const qs = params.toString();
+    return qs ? `/admin/parties/${party.id}?${qs}` : `/admin/parties/${party.id}`;
+  }
 
   return (
     <div className="space-y-6">
@@ -91,9 +124,22 @@ export default async function PartyDetailPage({ params }: Props) {
           <p className="text-sm text-gray-600">
             Name: <span className="font-semibold">{party.name}</span>
           </p>
+          <p className="text-sm text-gray-600">Type: <span className="font-mono">{party.type}</span></p>
           {party.phone ? <p className="text-sm text-gray-600">Phone: {party.phone}</p> : null}
           {party.email ? <p className="text-sm text-gray-600">Email: {party.email}</p> : null}
           {party.address ? <p className="text-sm text-gray-600">Address: {party.address}</p> : null}
+          {party.companyName ? <p className="text-sm text-gray-600">Company: {party.companyName}</p> : null}
+
+          {party.tags?.length ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {party.tags.map((t) => (
+                <span key={t} className="text-xs rounded border px-2 py-0.5 bg-white">
+                  {t}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
           <p className="text-xs text-gray-500 font-mono break-all mt-2">{party.id}</p>
         </div>
 
@@ -105,10 +151,45 @@ export default async function PartyDetailPage({ params }: Props) {
       <div className="rounded border bg-white p-4">
         <div className="flex items-center justify-between gap-4 mb-3">
           <p className="font-semibold">Timeline</p>
-          <p className="text-xs text-gray-600">Latest {timeline.length}</p>
+          <p className="text-xs text-gray-600">Showing {filtered.length} / {timeline.length}</p>
         </div>
 
-        {timeline.length === 0 ? (
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {KIND_TABS.map((t) => {
+            const active = t.key === kindFilter;
+            return (
+              <Link
+                key={t.key}
+                href={href(t.key, q)}
+                className={[
+                  "rounded px-3 py-1 text-sm border",
+                  active ? "bg-black text-white border-black" : "bg-white",
+                ].join(" ")}
+              >
+                {t.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        <form action={href(kindFilter, "")} className="mb-4 flex gap-2 items-center">
+          {kindFilter !== "ALL" ? <input type="hidden" name="kind" value={kindFilter} /> : null}
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search docs (INV/PB/RC/RB, status...)"
+            className="w-full max-w-md border rounded px-3 py-2 text-sm"
+          />
+          <button className="rounded bg-black px-4 py-2 text-white text-sm">Search</button>
+          {q ? (
+            <Link href={href(kindFilter, "")} className="text-sm underline text-gray-700">
+              Clear
+            </Link>
+          ) : null}
+        </form>
+
+        {filtered.length === 0 ? (
           <p className="text-sm text-gray-600">No linked documents yet.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -124,7 +205,7 @@ export default async function PartyDetailPage({ params }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {timeline.map((t) => (
+                {filtered.map((t) => (
                   <tr key={`${t.kind}-${t.id}`} className="border-t">
                     <td className="p-3 whitespace-nowrap">{t.occurredAt.toLocaleString()}</td>
                     <td className="p-3 font-mono">{t.kind}</td>

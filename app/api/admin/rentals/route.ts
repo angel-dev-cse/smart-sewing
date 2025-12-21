@@ -11,9 +11,11 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const customerName = String(body.customerName ?? "").trim();
-    const phone = body.phone ? String(body.phone).trim() : null;
-    const addressLine1 = body.addressLine1 ? String(body.addressLine1).trim() : null;
+    const partyId = body.partyId ? String(body.partyId).trim() : null;
+
+    const customerNameRaw = String(body.customerName ?? "").trim();
+    const phoneRaw = body.phone ? String(body.phone).trim() : null;
+    const addressLine1Raw = body.addressLine1 ? String(body.addressLine1).trim() : null;
     const city = body.city ? String(body.city).trim() : null;
 
     const deposit = Number(body.deposit ?? 0);
@@ -21,9 +23,7 @@ export async function POST(req: Request) {
 
     const items = Array.isArray(body.items) ? body.items : [];
 
-    if (!customerName) {
-      return NextResponse.json({ error: "Missing customerName." }, { status: 400 });
-    }
+    // customerName may come from selected party
     if (!Number.isInteger(deposit) || deposit < 0) {
       return NextResponse.json({ error: "Deposit must be a non-negative integer." }, { status: 400 });
     }
@@ -50,19 +50,36 @@ export async function POST(req: Request) {
     }
 
     const created = await db.$transaction(async (tx) => {
+      // Resolve party (optional)
+      let party: { id: string; type: "CUSTOMER" | "SUPPLIER" | "BOTH"; name: string; phone: string | null; address: string | null } | null = null;
+      if (partyId) {
+        party = await tx.party.findUnique({
+          where: { id: partyId },
+          select: { id: true, type: true, name: true, phone: true, address: true },
+        });
+        if (!party) return { ok: false as const, error: "Selected customer contact not found." };
+        if (!(party.type === "CUSTOMER" || party.type === "BOTH")) {
+          return { ok: false as const, error: "Selected contact is not a customer." };
+        }
+      }
+
+      const customerName = customerNameRaw || party?.name || "";
+      const phone = phoneRaw ?? party?.phone ?? null;
+      const addressLine1 = addressLine1Raw ?? party?.address ?? null;
+
+      if (!customerName) {
+        return { ok: false as const, error: "Missing customer name (or select a customer contact)." };
+      }
+
+      // Atomic contractNo increment using a single-row counter
       const counter = await tx.invoiceCounter.upsert({
         where: { id: "rental_contract" },
-        update: {},
+        update: { nextNo: { increment: 1 } },
         create: { id: "rental_contract", nextNo: 1 },
         select: { nextNo: true },
       });
 
       const contractNo = counter.nextNo;
-
-      await tx.invoiceCounter.update({
-        where: { id: "rental_contract" },
-        data: { nextNo: contractNo + 1 },
-      });
 
       const products = await tx.product.findMany({
         where: { id: { in: normalized.map((x) => x.productId) }, isActive: true },
@@ -87,6 +104,7 @@ export async function POST(req: Request) {
           city,
           deposit,
           notes,
+          ...(partyId ? { party: { connect: { id: partyId } } } : {}),
           items: {
             create: normalized.map((it) => ({
               productId: it.productId,
