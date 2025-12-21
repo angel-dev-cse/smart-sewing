@@ -5,16 +5,19 @@ type PosPaymentMethod = "CASH" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
 type PrismaPaymentMethod = "COD" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
 type LedgerKind = "CASH" | "BKASH" | "NAGAD" | "BANK";
 
+type Body = {
+  partyId?: string | null;
+  customerName?: string;
+  phone?: string | null;
+  paymentMethod?: PosPaymentMethod;
+  items?: Array<{ productId: string; quantity: number }>;
+};
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as Body;
 
-    const { customerName, phone, paymentMethod, items } = body as {
-      customerName?: string;
-      phone?: string | null;
-      paymentMethod?: PosPaymentMethod;
-      items?: Array<{ productId: string; quantity: number }>;
-    };
+    const { partyId, customerName, phone, paymentMethod, items } = body;
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: "No items." }, { status: 400 });
@@ -35,8 +38,7 @@ export async function POST(req: Request) {
 
     // Map POS -> Prisma PaymentMethod enum
     // Your schema supports: COD/BKASH/NAGAD/BANK_TRANSFER
-    const invoicePaymentMethod: PrismaPaymentMethod =
-      pmRaw === "CASH" ? "COD" : (pmRaw as PrismaPaymentMethod);
+    const invoicePaymentMethod: PrismaPaymentMethod = pmRaw === "CASH" ? "COD" : (pmRaw as PrismaPaymentMethod);
 
     if (!["COD", "BKASH", "NAGAD", "BANK_TRANSFER"].includes(invoicePaymentMethod)) {
       return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
@@ -47,6 +49,22 @@ export async function POST(req: Request) {
       pmRaw === "CASH" ? "CASH" : pmRaw === "BANK_TRANSFER" ? "BANK" : (pmRaw as LedgerKind);
 
     const result = await db.$transaction(async (tx) => {
+      // Resolve party (optional)
+      let party: { id: string; name: string; phone: string | null } | null = null;
+      if (partyId && typeof partyId === "string") {
+        party = await tx.party.findUnique({
+          where: { id: partyId },
+          select: { id: true, name: true, phone: true },
+        });
+        if (!party) {
+          throw new Error("Selected contact not found.");
+        }
+      }
+
+      // invoice counter (sales)
+      // Atomic invoiceNo allocation (same semantics as /api/admin/invoices):
+      // InvoiceCounter.nextNo stores "last used invoiceNo".
+      // We increment it and use the returned value as the new invoiceNo.
       const counter = await tx.invoiceCounter.upsert({
         where: { id: "sales" },
         update: { nextNo: { increment: 1 } },
@@ -58,12 +76,17 @@ export async function POST(req: Request) {
 
       let subtotal = 0;
 
+      const finalCustomerName =
+        (String(customerName ?? "").trim() || party?.name || "Walk-in customer").trim();
+      const finalPhone = phone ? String(phone) : party?.phone ?? null;
+
       const invoice = await tx.salesInvoice.create({
         data: {
           invoiceNo,
           status: "ISSUED",
-          customerName: (customerName ?? "").trim() || "Walk-in customer",
-          phone: phone ? String(phone) : null,
+          partyId: party?.id ?? null,
+          customerName: finalCustomerName,
+          phone: finalPhone,
           paymentMethod: invoicePaymentMethod,
           issuedAt: new Date(),
         },

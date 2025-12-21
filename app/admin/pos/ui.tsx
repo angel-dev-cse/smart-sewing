@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Product = {
@@ -12,16 +12,40 @@ type Product = {
 
 type Item = Product & { qty: number };
 
+type Party = {
+  id: string;
+  name: string;
+  phone: string | null;
+  type: "CUSTOMER" | "SUPPLIER" | "BOTH";
+};
+
 type PosPay = "CASH" | "BKASH" | "NAGAD" | "BANK_TRANSFER";
 
-export default function PosClient({ products }: { products: Product[] }) {
+export default function PosClient({
+  products,
+  parties,
+}: {
+  products: Product[];
+  parties: Party[];
+}) {
   const router = useRouter();
+
   const [items, setItems] = useState<Item[]>([]);
+  const [partyId, setPartyId] = useState<string>("");
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [newPartyName, setNewPartyName] = useState("");
+  const [newPartyPhone, setNewPartyPhone] = useState("");
+
   const [paymentMethod, setPaymentMethod] = useState<PosPay>("CASH");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const customerOptions = useMemo(() => {
+    return parties.filter((p) => p.type === "CUSTOMER" || p.type === "BOTH");
+  }, [parties]);
 
   function addProduct(p: Product) {
     setItems((prev) => {
@@ -43,17 +67,62 @@ export default function PosClient({ products }: { products: Product[] }) {
 
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
 
-  async function submit() {
-    setError(null);
+  function onSelectParty(id: string) {
+    setPartyId(id);
+    const p = customerOptions.find((x) => x.id === id);
+    if (p) {
+      setCustomerName(p.name);
+      setPhone(p.phone ?? "");
+    }
+  }
 
-    if (items.length === 0) {
-      setError("Add at least one product.");
+  async function quickAddParty() {
+    setError(null);
+    const name = newPartyName.trim();
+    if (!name) {
+      setError("Contact name is required.");
       return;
     }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/parties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "CUSTOMER",
+          name,
+          phone: newPartyPhone.trim() || null,
+        }),
+      });
 
-    // basic guard: prevent qty 0/negative
-    if (items.some((i) => !Number.isFinite(i.qty) || i.qty < 1)) {
-      setError("Quantity must be at least 1 for all items.");
+      const data: unknown = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          typeof (data as { error?: unknown })?.error === "string"
+            ? (data as { error: string }).error
+            : "Failed to create contact.";
+        throw new Error(msg);
+      }
+
+      const id = (data as { id: string }).id;
+      setPartyId(id);
+      setCustomerName(name);
+      setPhone(newPartyPhone.trim());
+      setShowQuickAdd(false);
+
+      // Refresh server props (so the new party appears in select if user opens it again)
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submit() {
+    setError(null);
+    if (items.length === 0) {
+      setError("Add at least one product.");
       return;
     }
 
@@ -63,9 +132,10 @@ export default function PosClient({ products }: { products: Product[] }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          partyId: partyId || null,
           customerName: customerName || "Walk-in customer",
           phone: phone || null,
-          paymentMethod, // "CASH" | "BKASH" | "NAGAD" | "BANK_TRANSFER"
+          paymentMethod,
           items: items.map((i) => ({
             productId: i.id,
             quantity: i.qty,
@@ -73,12 +143,12 @@ export default function PosClient({ products }: { products: Product[] }) {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data: any = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
 
       router.push(`/admin/invoices/${data.invoiceId}`);
     } catch (e: any) {
-      setError(e?.message ?? "Failed");
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -107,6 +177,64 @@ export default function PosClient({ products }: { products: Product[] }) {
       <div className="border rounded p-3 space-y-3">
         <p className="font-semibold">Bill</p>
 
+        {/* Customer / Contact */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Customer / Contact</p>
+            <button
+              type="button"
+              className="text-xs underline"
+              onClick={() => setShowQuickAdd((v) => !v)}
+              disabled={loading}
+            >
+              {showQuickAdd ? "Hide" : "Quick add"}
+            </button>
+          </div>
+
+          <select
+            className="w-full border rounded px-2 py-1 text-sm bg-white"
+            value={partyId}
+            onChange={(e) => onSelectParty(e.target.value)}
+            disabled={loading}
+          >
+            <option value="">— Walk-in / no contact —</option>
+            {customerOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.phone ? ` (${p.phone})` : ""}
+              </option>
+            ))}
+          </select>
+
+          {showQuickAdd && (
+            <div className="rounded border p-2 bg-gray-50 space-y-2">
+              <input
+                placeholder="Customer name"
+                className="w-full border px-2 py-1 text-sm"
+                value={newPartyName}
+                onChange={(e) => setNewPartyName(e.target.value)}
+                disabled={loading}
+              />
+              <input
+                placeholder="Phone (optional)"
+                className="w-full border px-2 py-1 text-sm"
+                value={newPartyPhone}
+                onChange={(e) => setNewPartyPhone(e.target.value)}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={quickAddParty}
+                disabled={loading}
+                className="rounded bg-black px-3 py-1 text-white text-sm disabled:opacity-60"
+              >
+                {loading ? "Saving..." : "Create customer"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Items */}
         {items.map((i) => (
           <div key={i.id} className="flex justify-between items-center gap-2">
             <span className="flex-1">{i.title}</span>
