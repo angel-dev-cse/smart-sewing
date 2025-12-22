@@ -8,7 +8,13 @@ type Props = {
 };
 
 type TimelineItem = {
-  kind: "SALES_INVOICE" | "PURCHASE_BILL" | "RENTAL_CONTRACT" | "RENTAL_BILL";
+  kind:
+    | "SALES_INVOICE"
+    | "PURCHASE_BILL"
+    | "PURCHASE_RETURN"
+    | "RENTAL_CONTRACT"
+    | "RENTAL_BILL"
+    | "SALES_RETURN";
   id: string;
   label: string;
   status?: string;
@@ -30,6 +36,8 @@ export default async function PartyDetailPage({ params, searchParams }: Props) {
       salesInvoices: true,
       rentalContracts: true,
       purchaseBills: true,
+      salesReturns: true,
+      purchaseReturns: true,
     },
   });
 
@@ -38,7 +46,9 @@ export default async function PartyDetailPage({ params, searchParams }: Props) {
   const KIND_TABS = [
     { key: "ALL", label: "All" },
     { key: "SALES_INVOICE", label: "Sales" },
+    { key: "SALES_RETURN", label: "Sales returns" },
     { key: "PURCHASE_BILL", label: "Purchases" },
+    { key: "PURCHASE_RETURN", label: "Purchase returns" },
     { key: "RENTAL_CONTRACT", label: "Rentals" },
     { key: "RENTAL_BILL", label: "Rental bills" },
   ] as const;
@@ -78,6 +88,26 @@ export default async function PartyDetailPage({ params, searchParams }: Props) {
       total: p.total,
       occurredAt: p.createdAt,
       href: `/admin/purchase-bills/${p.id}`,
+    })),
+    ...party.purchaseReturns.map((r) => ({
+      kind: "PURCHASE_RETURN" as const,
+      id: r.id,
+      label: `PR-${pad6(r.returnNo)}`,
+      status: r.status,
+      paymentStatus: undefined,
+      total: r.total,
+      occurredAt: r.issuedAt ?? r.createdAt,
+      href: `/admin/purchase-returns/${r.id}`,
+    })),
+    ...party.salesReturns.map((r) => ({
+      kind: "SALES_RETURN" as const,
+      id: r.id,
+      label: `SR-${pad6(r.returnNo)}`,
+      status: r.status,
+      paymentStatus: undefined,
+      total: r.total,
+      occurredAt: r.issuedAt ?? r.createdAt,
+      href: `/admin/sales-returns/${r.id}`,
     })),
     ...party.rentalContracts.map((r) => ({
       kind: "RENTAL_CONTRACT" as const,

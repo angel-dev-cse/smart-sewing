@@ -23,9 +23,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/admin/purchase-bills" className="block underline">
               Purchase Bills
             </Link>
+            <Link href="/admin/purchase-returns" className="block underline">
+              Purchase Returns
+            </Link>
 
             <Link className="block underline" href="/admin/pos">
               POS
+            </Link>
+            <Link className="block underline" href="/admin/sales-returns">
+              Sales Returns
+            </Link>
+            <Link className="block underline" href="/admin/write-offs">
+              Write-offs
             </Link>
             <Link className="block underline" href="/admin/parties">
               Parties

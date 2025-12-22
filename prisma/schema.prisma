@@ -103,6 +103,24 @@ enum PurchasePaymentMethod {
   BANK
 }
 
+enum SalesReturnStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+enum PurchaseReturnStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+enum WriteOffStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -123,6 +141,10 @@ model Product {
   rentalContractItems  RentalContractItem[]
   rentalBillItems      RentalBillItem[]
   purchaseBillItems    PurchaseBillItem[]
+
+  salesReturnItems    SalesReturnItem[]
+  purchaseReturnItems PurchaseReturnItem[]
+  writeOffItems       WriteOffItem[]
 }
 
 model Order {
@@ -225,6 +247,8 @@ model SalesInvoice {
 
   partyId String?
   party   Party?  @relation(fields: [partyId], references: [id])
+
+  salesReturns SalesReturn[]
 
   @@index([status, createdAt])
   @@index([invoiceNo])
@@ -329,6 +353,8 @@ model LedgerEntry {
   account          LedgerAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
   category         LedgerCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   purchasePayments PurchasePayment[]
+  salesReturnRefunds    SalesReturnRefund[]
+  purchaseReturnRefunds PurchaseReturnRefund[]
 
   @@index([accountId, occurredAt])
   @@index([categoryId, occurredAt])
@@ -451,6 +477,8 @@ model PurchaseBill {
   // ✅ NEW
   payments PurchasePayment[]
 
+  purchaseReturns PurchaseReturn[]
+
   @@index([status, createdAt])
   @@index([billNo])
 }
@@ -493,6 +521,182 @@ model PurchaseBillItem {
   @@index([productId])
 }
 
+model SalesReturn {
+  id       String            @id @default(cuid())
+  returnNo Int               @unique
+  status   SalesReturnStatus @default(ISSUED)
+
+  salesInvoiceId String?
+  salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+
+  partyId String?
+  party   Party?  @relation(fields: [partyId], references: [id], onDelete: SetNull)
+
+  customerName String
+  phone        String?
+  notes        String?
+
+  subtotal Int @default(0)
+  total    Int @default(0)
+
+  issuedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items   SalesReturnItem[]
+  refunds SalesReturnRefund[]
+
+  @@index([status, createdAt])
+  @@index([returnNo])
+  @@index([partyId])
+  @@index([salesInvoiceId])
+}
+
+model SalesReturnItem {
+  id           String @id @default(cuid())
+  salesReturnId String
+  productId    String
+
+  titleSnapshot String
+  unitPrice     Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  salesReturn SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([salesReturnId])
+  @@index([productId])
+}
+
+model SalesReturnRefund {
+  id           String @id @default(cuid())
+  salesReturnId String
+
+  method PurchasePaymentMethod
+  amount Int
+  note   String?
+  paidAt DateTime @default(now())
+
+  ledgerEntryId String?
+  ledgerEntry   LedgerEntry? @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  salesReturn SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([salesReturnId, paidAt])
+  @@index([ledgerEntryId])
+}
+
+model PurchaseReturn {
+  id       String              @id @default(cuid())
+  returnNo Int                 @unique
+  status   PurchaseReturnStatus @default(ISSUED)
+
+  purchaseBillId String?
+  purchaseBill   PurchaseBill? @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+
+  partyId String?
+  party   Party?  @relation(fields: [partyId], references: [id], onDelete: SetNull)
+
+  supplierName String
+  phone        String?
+  notes        String?
+
+  subtotal Int @default(0)
+  total    Int @default(0)
+
+  issuedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items   PurchaseReturnItem[]
+  refunds PurchaseReturnRefund[]
+
+  @@index([status, createdAt])
+  @@index([returnNo])
+  @@index([partyId])
+  @@index([purchaseBillId])
+}
+
+model PurchaseReturnItem {
+  id             String @id @default(cuid())
+  purchaseReturnId String
+  productId      String
+
+  titleSnapshot String
+  unitCost      Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  purchaseReturn PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseReturnId])
+  @@index([productId])
+}
+
+model PurchaseReturnRefund {
+  id             String @id @default(cuid())
+  purchaseReturnId String
+
+  method PurchasePaymentMethod
+  amount Int
+  note   String?
+  paidAt DateTime @default(now())
+
+  ledgerEntryId String?
+  ledgerEntry   LedgerEntry? @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  purchaseReturn PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseReturnId, paidAt])
+  @@index([ledgerEntryId])
+}
+
+model WriteOff {
+  id         String        @id @default(cuid())
+  writeOffNo Int           @unique
+  status     WriteOffStatus @default(ISSUED)
+
+  reason String?
+  notes  String?
+
+  totalValue Int @default(0)
+
+  issuedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items WriteOffItem[]
+
+  @@index([status, createdAt])
+  @@index([writeOffNo])
+}
+
+model WriteOffItem {
+  id        String @id @default(cuid())
+  writeOffId String
+  productId String
+
+  titleSnapshot String
+  unitValue     Int
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  writeOff WriteOff @relation(fields: [writeOffId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([writeOffId])
+  @@index([productId])
+}
+
 model Party {
   id      String    @id @default(cuid())
   type    PartyType
@@ -514,6 +718,9 @@ model Party {
   salesInvoices   SalesInvoice[]
   purchaseBills   PurchaseBill[]
   rentalContracts RentalContract[]
+
+  salesReturns    SalesReturn[]
+  purchaseReturns PurchaseReturn[]
 
   @@index([type, isActive])
   @@index([name])

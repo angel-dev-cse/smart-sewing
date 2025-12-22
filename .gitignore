@@ -53,6 +53,7 @@ Thumbs.db
 
 # Personal Files
 *.zip
+zipping.py
 
 # Patch Files
 *.patch
