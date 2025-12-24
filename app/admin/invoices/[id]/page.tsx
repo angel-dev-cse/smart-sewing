@@ -1,100 +1,193 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
-import InvoiceActions from "./ui-actions";
+import { db } from "@/lib/db";
+import InvoicePaymentActions from "./payment-actions";
+
+const PAYMENT_REF_TYPE = "SALES_INVOICE_PAYMENT" as const;
 
 type Props = { params: Promise<{ id: string }> };
 
-export default async function InvoicePage({ params }: Props) {
+export default async function InvoiceDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const invoice = await db.salesInvoice.findUnique({
+  const inv = await db.salesInvoice.findUnique({
     where: { id },
-    include: { items: true, party: { select: { id: true, name: true } } },
+    include: {
+      party: { select: { id: true, name: true } },
+      items: {
+        include: { product: { select: { title: true } } },
+      },
+    },
   });
 
-  if (!invoice) notFound();
+  if (!inv) notFound();
+
+  const accounts = await db.ledgerAccount.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, kind: true },
+  });
+
+  const payments = await db.ledgerEntry.findMany({
+    where: {
+      refType: PAYMENT_REF_TYPE,
+      refId: inv.id,
+      direction: "IN",
+    },
+    orderBy: { occurredAt: "desc" },
+    include: {
+      account: { select: { name: true, kind: true } },
+    },
+  });
+
+  const paid = payments.reduce((sum, e) => sum + e.amount, 0);
+  const remaining = Math.max(0, inv.total - paid);
+
+  const ledgerLink = `/admin/ledger/entries?q=${encodeURIComponent(inv.id)}`;
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">
-            <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
-            INV-{String(invoice.invoiceNo).padStart(6, "0")}
-          </h1>
+          <h1 className="text-2xl font-bold">Sales Invoice</h1>
           <p className="text-sm text-gray-600">
-            Status: <span className="font-semibold">{invoice.status}</span>
+            Invoice: <span className="font-mono">#{inv.invoiceNo}</span>
+          </p>
+          <p className="text-xs text-gray-600 font-mono break-all">{inv.id}</p>
+          <p className="text-sm text-gray-600">
+            Status: <span className="font-mono">{inv.status}</span>
+          </p>
+          <p className="text-sm text-gray-600">
+            Payment: <span className="font-mono">{inv.paymentStatus}</span>
           </p>
         </div>
-        <a
-          className="underline text-sm"
-          href={`/admin/invoices/${invoice.id}/print`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Print
-        </a>
 
-        <Link className="underline" href="/admin/invoices">
-          ← Back
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <Link className="text-sm underline" href="/admin/invoices">
+            Back
+          </Link>
+          <Link className="text-sm underline" href={ledgerLink}>
+            View related ledger entries
+          </Link>
+        </div>
       </div>
 
-      <div className="rounded border bg-white p-4 space-y-1">
-        <p><span className="font-semibold">Customer:</span> {invoice.customerName}</p>
-        {invoice.party ? (
-          <p className="text-sm">
-            <span className="font-semibold">Linked contact:</span>{" "}
-            <Link className="underline" href={`/admin/parties/${invoice.party.id}`}>
-              {invoice.party.name}
+      {/* Customer */}
+      <div className="rounded border bg-white p-4">
+        <p className="font-semibold mb-2">Customer</p>
+        <p>{inv.customerName || "—"}</p>
+        {inv.party ? (
+          <p className="text-xs text-gray-600 mt-1">
+            Linked contact:{" "}
+            <Link className="underline" href={`/admin/parties/${inv.party.id}`}>
+              {inv.party.name}
             </Link>
           </p>
         ) : null}
-        {invoice.phone && <p><span className="font-semibold">Phone:</span> {invoice.phone}</p>}
-        {invoice.city && <p><span className="font-semibold">City:</span> {invoice.city}</p>}
-        {invoice.addressLine1 && <p><span className="font-semibold">Address:</span> {invoice.addressLine1}</p>}
-        {invoice.notes && <p className="text-sm text-gray-700"><span className="font-semibold">Notes:</span> {invoice.notes}</p>}
+        {inv.phone ? <p className="text-sm text-gray-700">{inv.phone}</p> : null}
+        {inv.addressLine1 ? <p className="text-sm text-gray-700 mt-2">{inv.addressLine1}</p> : null}
+        {inv.city ? <p className="text-sm text-gray-700">{inv.city}</p> : null}
       </div>
 
+      {/* Items */}
       <div className="rounded border bg-white p-4">
-        <p className="font-semibold mb-2">Items</p>
-        <ul className="text-sm space-y-1">
-          {invoice.items.map((it) => (
-            <li key={it.id} className="flex justify-between">
-              <span>
-                {it.titleSnapshot} × {it.quantity}
-              </span>
-              <span>
-                ৳ {(it.unitPrice * it.quantity).toLocaleString()}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <p className="font-semibold mb-3">Items</p>
+        {inv.items.length === 0 ? (
+          <p className="text-sm text-gray-600">No items.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="p-3">Product</th>
+                  <th className="p-3">Qty</th>
+                  <th className="p-3">Unit</th>
+                  <th className="p-3">Line</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.items.map((it) => (
+                  <tr key={it.id} className="border-t">
+                    <td className="p-3">{it.titleSnapshot}</td>
+                    <td className="p-3 font-mono">{it.quantity}</td>
+                    <td className="p-3 font-mono">৳ {it.unitPrice.toLocaleString()}</td>
+                    <td className="p-3 font-mono">৳ {(it.unitPrice * it.quantity).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        <div className="border-t mt-3 pt-3 text-sm space-y-1">
+        <div className="border-t mt-4 pt-4 text-sm space-y-2">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>৳ {invoice.subtotal.toLocaleString()}</span>
+            <span className="font-semibold">৳ {inv.subtotal.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span>Discount</span>
-            <span>- ৳ {invoice.discount.toLocaleString()}</span>
+            <span className="font-semibold">৳ {inv.discount.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
-            <span>Delivery fee</span>
-            <span>+ ৳ {invoice.deliveryFee.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between font-bold border-t pt-2 mt-2">
             <span>Total</span>
-            <span>৳ {invoice.total.toLocaleString()}</span>
+            <span className="font-semibold">৳ {inv.total.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-gray-600">
-        Next: we’ll add “Issue invoice” (locks it + decrements stock + logs inventory movements).
-      </p>
+      {/* Payments */}
+      <div className="rounded border bg-white p-4 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-semibold">Payments</p>
+            <p className="text-sm text-gray-600">
+              Paid: <span className="font-mono">৳ {paid.toLocaleString()}</span> · Remaining:{" "}
+              <span className="font-mono">৳ {remaining.toLocaleString()}</span>
+            </p>
+          </div>
+
+          <div className="text-sm">
+            <Link className="underline" href={`/admin/ledger/entries?q=${encodeURIComponent(PAYMENT_REF_TYPE)}`}>
+              Search payments in ledger
+            </Link>
+          </div>
+        </div>
+
+        <InvoicePaymentActions
+          invoiceId={inv.id}
+          total={inv.total}
+          paid={paid}
+          paymentStatus={inv.paymentStatus}
+          accounts={accounts}
+        />
+
+        {payments.length === 0 ? (
+          <p className="text-sm text-gray-600">No payments recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Account</th>
+                  <th className="p-3">Amount</th>
+                  <th className="p-3">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3 whitespace-nowrap">{new Date(p.occurredAt).toLocaleString()}</td>
+                    <td className="p-3">{p.account.name} ({p.account.kind})</td>
+                    <td className="p-3 font-mono whitespace-nowrap">৳ {p.amount.toLocaleString()}</td>
+                    <td className="p-3 text-gray-700">{p.note ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

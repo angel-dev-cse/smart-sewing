@@ -29,18 +29,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No items." }, { status: 400 });
     }
 
-    const refundMethod = String(body.refundMethod ?? "NONE").toUpperCase() as RefundMethod;
+    const refundMethodRaw = String(body.refundMethod ?? "NONE").toUpperCase() as RefundMethod;
+    const refundMethod: RefundMethod =
+      refundMethodRaw === "CASH" ||
+      refundMethodRaw === "BKASH" ||
+      refundMethodRaw === "NAGAD" ||
+      refundMethodRaw === "BANK"
+        ? refundMethodRaw
+        : "NONE";
+
     const refundAmountInput = Number(body.refundAmount ?? 0);
-    const notes = body.notes ? String(body.notes).trim() : null;
+    const notes = typeof body.notes === "string" ? body.notes.trim() : "";
 
-    if (!["NONE", "CASH", "BKASH", "NAGAD", "BANK"].includes(refundMethod)) {
-      return NextResponse.json({ error: "Invalid refundMethod." }, { status: 400 });
-    }
-
+    // normalize + validate requested quantities
     const reqItems = itemsRaw
       .map((it) => ({
-        productId: String(it.productId ?? "").trim(),
-        quantity: Math.floor(Number(it.quantity)),
+        productId: String((it as any)?.productId ?? "").trim(),
+        quantity: Math.floor(Number((it as any)?.quantity)),
       }))
       .filter((it) => it.productId && Number.isFinite(it.quantity) && it.quantity > 0);
 
@@ -57,14 +62,8 @@ export async function POST(req: Request) {
       if (!inv) throw new Error("Sales invoice not found.");
       if (inv.status !== "ISSUED") throw new Error("Only ISSUED invoices can be returned.");
 
-      /* ---------------------------------------------------------
-         1️⃣ Build SOLD quantities map (this was missing)
-      --------------------------------------------------------- */
-      const soldByProduct = new Map<
-        string,
-        { title: string; unitPrice: number; qtySold: number }
-      >();
-
+      // Build sold qty map
+      const soldByProduct = new Map<string, { title: string; unitPrice: number; qtySold: number }>();
       for (const it of inv.items) {
         const prev = soldByProduct.get(it.productId);
         soldByProduct.set(it.productId, {
@@ -74,9 +73,7 @@ export async function POST(req: Request) {
         });
       }
 
-      /* ---------------------------------------------------------
-         2️⃣ Calculate ALREADY RETURNED quantities
-      --------------------------------------------------------- */
+      // Calculate already-returned quantities for this invoice (ISSUED returns only)
       const existingReturns = await tx.salesReturn.findMany({
         where: { salesInvoiceId: inv.id, status: "ISSUED" },
         include: { items: true },
@@ -85,16 +82,11 @@ export async function POST(req: Request) {
       const returnedByProduct = new Map<string, number>();
       for (const r of existingReturns) {
         for (const it of r.items) {
-          returnedByProduct.set(
-            it.productId,
-            (returnedByProduct.get(it.productId) ?? 0) + it.quantity
-          );
+          returnedByProduct.set(it.productId, (returnedByProduct.get(it.productId) ?? 0) + it.quantity);
         }
       }
 
-      /* ---------------------------------------------------------
-         3️⃣ Validate remaining quantities
-      --------------------------------------------------------- */
+      // Validate against remaining returnable qty
       for (const it of reqItems) {
         const sold = soldByProduct.get(it.productId);
         if (!sold) throw new Error("Invalid product in return.");
@@ -102,16 +94,16 @@ export async function POST(req: Request) {
         const alreadyReturned = returnedByProduct.get(it.productId) ?? 0;
         const remaining = sold.qtySold - alreadyReturned;
 
+        if (remaining <= 0) {
+          throw new Error(`No remaining qty to return for ${sold.title}.`);
+        }
+
         if (it.quantity > remaining) {
-          throw new Error(
-            `Return qty exceeds remaining qty for ${sold.title}. Remaining: ${remaining}`
-          );
+          throw new Error(`Return qty exceeds remaining qty for ${sold.title}. Remaining: ${remaining}`);
         }
       }
 
-      /* ---------------------------------------------------------
-         4️⃣ Counter
-      --------------------------------------------------------- */
+      // Counter
       const counter = await tx.invoiceCounter.upsert({
         where: { id: COUNTER_ID },
         update: { nextNo: { increment: 1 } },
@@ -120,9 +112,6 @@ export async function POST(req: Request) {
       });
       const returnNo = counter.nextNo;
 
-      /* ---------------------------------------------------------
-         5️⃣ Create Sales Return
-      --------------------------------------------------------- */
       let subtotal = 0;
 
       const sr = await tx.salesReturn.create({
@@ -134,14 +123,11 @@ export async function POST(req: Request) {
           ...(inv.partyId ? { party: { connect: { id: inv.partyId } } } : {}),
           customerName: inv.customerName,
           phone: inv.phone,
-          notes,
+          notes: notes || null,
         },
         select: { id: true },
       });
 
-      /* ---------------------------------------------------------
-         6️⃣ Items + stock IN
-      --------------------------------------------------------- */
       for (const it of reqItems) {
         const sold = soldByProduct.get(it.productId)!;
         const line = sold.unitPrice * it.quantity;
@@ -159,17 +145,14 @@ export async function POST(req: Request) {
 
         const product = await tx.product.findUnique({
           where: { id: it.productId },
-          select: { stock: true },
+          select: { stock: true, title: true },
         });
-        if (!product) throw new Error("Product not found.");
+        if (!product) throw new Error(`Product not found: ${it.productId}`);
 
         const beforeStock = product.stock;
         const afterStock = beforeStock + it.quantity;
 
-        await tx.product.update({
-          where: { id: it.productId },
-          data: { stock: afterStock },
-        });
+        await tx.product.update({ where: { id: it.productId }, data: { stock: afterStock } });
 
         await tx.inventoryMovement.create({
           data: {
@@ -192,20 +175,15 @@ export async function POST(req: Request) {
         data: { subtotal: total, total },
       });
 
-      /* ---------------------------------------------------------
-         7️⃣ Optional refund
-      --------------------------------------------------------- */
-      const requestedRefund = Number.isFinite(refundAmountInput)
-        ? Math.floor(refundAmountInput)
-        : 0;
-
+      // Optional refund
+      const requestedRefund = Number.isFinite(refundAmountInput) ? Math.floor(refundAmountInput) : 0;
       const refundAmount =
-        refundMethod === "NONE"
-          ? 0
-          : Math.max(0, Math.min(total, requestedRefund || total));
+        refundMethod === "NONE" ? 0 : Math.max(0, Math.min(total, requestedRefund || total));
 
       if (refundMethod !== "NONE" && refundAmount > 0) {
-        const ledgerKind: LedgerKind = refundMethod;
+        const method = refundMethod as PrismaRefundMethod;
+
+        const ledgerKind: LedgerKind = method;
         const account = await tx.ledgerAccount.findFirst({
           where: { kind: ledgerKind, isActive: true },
           select: { id: true },
@@ -230,7 +208,7 @@ export async function POST(req: Request) {
         await tx.salesReturnRefund.create({
           data: {
             salesReturnId: sr.id,
-            method: refundMethod as PrismaRefundMethod,
+            method,
             amount: refundAmount,
             note: notes ? `Refund: ${notes}` : null,
             ...(ledgerEntryId ? { ledgerEntryId } : {}),
