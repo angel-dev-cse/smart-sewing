@@ -201,6 +201,11 @@ model InventoryMovement {
   afterStock  Int
   note        String?
 
+  // Phase 8C (Locations): optional origin/destination.
+  // MVP keeps these nullable so older documents keep working.
+  fromLocationId String?
+  toLocationId   String?
+
   // "Document-first" future-proofing:
   // Later: SALES_INVOICE, PURCHASE_ORDER, RENTAL, etc.
   refType String?
@@ -212,10 +217,31 @@ model InventoryMovement {
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
   order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
+  fromLocation Location? @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocation   Location? @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: SetNull)
+
   @@unique([refType, refId, productId, kind])
   @@index([productId, createdAt])
   @@index([orderId])
   @@index([refType, refId])
+  @@index([fromLocationId, createdAt])
+  @@index([toLocationId, createdAt])
+}
+
+model Location {
+  id       String  @id @default(cuid())
+  code     String  @unique // e.g. SHOP, WAREHOUSE, SERVICE
+  name     String
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movementsFrom InventoryMovement[] @relation("FromLocation")
+  movementsTo   InventoryMovement[] @relation("ToLocation")
+
+  @@index([isActive])
+  @@index([name])
 }
 
 model SalesInvoice {
