@@ -43,6 +43,9 @@ export default async function PartyDetailPage({ params, searchParams }: Props) {
 
   if (!party) notFound();
 
+  // TypeScript needs this assertion after the notFound() check
+  const partyData = party;
+
   const KIND_TABS = [
     { key: "ALL", label: "All" },
     { key: "SALES_INVOICE", label: "Sales" },
@@ -143,7 +146,7 @@ export default async function PartyDetailPage({ params, searchParams }: Props) {
     if (nextKind && nextKind !== "ALL") params.set("kind", nextKind);
     if (nextQ.trim()) params.set("q", nextQ.trim());
     const qs = params.toString();
-    return qs ? `/admin/parties/${party.id}?${qs}` : `/admin/parties/${party.id}`;
+    return qs ? `/admin/parties/${partyData.id}?${qs}` : `/admin/parties/${partyData.id}`;
   }
 
   return (

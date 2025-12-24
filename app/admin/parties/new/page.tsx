@@ -68,7 +68,7 @@ export default function NewPartyPage() {
       <input className="w-full border px-3 py-2" placeholder="Email (optional)" value={email} onChange={e => setEmail(e.target.value)} />
       <textarea className="w-full border px-3 py-2" placeholder="Address (optional)" value={address} onChange={e => setAddress(e.target.value)} rows={2} />
 
-      <select className="w-full border px-3 py-2" value={type} onChange={e => setType(e.target.value as any)}>
+      <select className="w-full border px-3 py-2" value={type} onChange={e => setType(e.target.value as "CUSTOMER" | "SUPPLIER" | "BOTH")}>
         <option value="CUSTOMER">Customer</option>
         <option value="SUPPLIER">Supplier</option>
         <option value="BOTH">Both</option>

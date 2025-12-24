@@ -19,8 +19,9 @@ export async function POST(req: Request) {
     const itemsRaw = Array.isArray(body.items) ? body.items : [];
     const items: Array<{ productId: string; quantity: number }> = [];
     for (const it of itemsRaw) {
-      const productId = typeof (it as any)?.productId === "string" ? (it as any).productId : "";
-      const quantity = Number((it as any)?.quantity);
+      const item = it as { productId?: unknown; quantity?: unknown };
+      const productId = typeof item.productId === "string" ? item.productId : "";
+      const quantity = Number(item.quantity);
       if (!productId) return NextResponse.json({ error: "Invalid item productId." }, { status: 400 });
       if (!Number.isFinite(quantity) || quantity < 1)
         return NextResponse.json({ error: "Invalid item quantity." }, { status: 400 });
@@ -102,8 +103,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ id: createdId });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "Server error";
+  } catch (e: unknown) {
+    const msg = e instanceof Error && typeof e.message === "string" ? e.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

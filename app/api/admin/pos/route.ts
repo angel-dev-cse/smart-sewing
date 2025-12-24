@@ -168,8 +168,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ invoiceId: result });
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "Server error";
+  } catch (e: unknown) {
+    const msg = e instanceof Error && typeof e.message === "string" ? e.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

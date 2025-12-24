@@ -33,11 +33,10 @@ export async function POST(req: Request) {
     const refundAmountInput = Number(body.refundAmount ?? 0);
     const notes = body.notes ? String(body.notes).trim() : null;
 
-    if (!(["NONE", "CASH", "BKASH", "NAGAD", "BANK"] as const).includes(refundMethod)) {
+    if (!["NONE", "CASH", "BKASH", "NAGAD", "BANK"].includes(refundMethod)) {
       return NextResponse.json({ error: "Invalid refundMethod." }, { status: 400 });
     }
 
-    // normalize + validate requested quantities
     const reqItems = itemsRaw
       .map((it) => ({
         productId: String(it.productId ?? "").trim(),
@@ -58,10 +57,14 @@ export async function POST(req: Request) {
       if (!inv) throw new Error("Sales invoice not found.");
       if (inv.status !== "ISSUED") throw new Error("Only ISSUED invoices can be returned.");
 
+      /* ---------------------------------------------------------
+         1️⃣ Build SOLD quantities map (this was missing)
+      --------------------------------------------------------- */
       const soldByProduct = new Map<
         string,
         { title: string; unitPrice: number; qtySold: number }
       >();
+
       for (const it of inv.items) {
         const prev = soldByProduct.get(it.productId);
         soldByProduct.set(it.productId, {
@@ -71,15 +74,44 @@ export async function POST(req: Request) {
         });
       }
 
-      // Validate against sold qty
-      for (const it of reqItems) {
-        const sold = soldByProduct.get(it.productId);
-        if (!sold) throw new Error("Invalid product in return.");
-        if (it.quantity > sold.qtySold) {
-          throw new Error(`Return qty exceeds sold qty for ${sold.title}.`);
+      /* ---------------------------------------------------------
+         2️⃣ Calculate ALREADY RETURNED quantities
+      --------------------------------------------------------- */
+      const existingReturns = await tx.salesReturn.findMany({
+        where: { salesInvoiceId: inv.id, status: "ISSUED" },
+        include: { items: true },
+      });
+
+      const returnedByProduct = new Map<string, number>();
+      for (const r of existingReturns) {
+        for (const it of r.items) {
+          returnedByProduct.set(
+            it.productId,
+            (returnedByProduct.get(it.productId) ?? 0) + it.quantity
+          );
         }
       }
 
+      /* ---------------------------------------------------------
+         3️⃣ Validate remaining quantities
+      --------------------------------------------------------- */
+      for (const it of reqItems) {
+        const sold = soldByProduct.get(it.productId);
+        if (!sold) throw new Error("Invalid product in return.");
+
+        const alreadyReturned = returnedByProduct.get(it.productId) ?? 0;
+        const remaining = sold.qtySold - alreadyReturned;
+
+        if (it.quantity > remaining) {
+          throw new Error(
+            `Return qty exceeds remaining qty for ${sold.title}. Remaining: ${remaining}`
+          );
+        }
+      }
+
+      /* ---------------------------------------------------------
+         4️⃣ Counter
+      --------------------------------------------------------- */
       const counter = await tx.invoiceCounter.upsert({
         where: { id: COUNTER_ID },
         update: { nextNo: { increment: 1 } },
@@ -88,12 +120,16 @@ export async function POST(req: Request) {
       });
       const returnNo = counter.nextNo;
 
+      /* ---------------------------------------------------------
+         5️⃣ Create Sales Return
+      --------------------------------------------------------- */
       let subtotal = 0;
 
       const sr = await tx.salesReturn.create({
         data: {
           returnNo,
           status: "ISSUED",
+          issuedAt: new Date(),
           salesInvoice: { connect: { id: inv.id } },
           ...(inv.partyId ? { party: { connect: { id: inv.partyId } } } : {}),
           customerName: inv.customerName,
@@ -103,6 +139,9 @@ export async function POST(req: Request) {
         select: { id: true },
       });
 
+      /* ---------------------------------------------------------
+         6️⃣ Items + stock IN
+      --------------------------------------------------------- */
       for (const it of reqItems) {
         const sold = soldByProduct.get(it.productId)!;
         const line = sold.unitPrice * it.quantity;
@@ -153,9 +192,17 @@ export async function POST(req: Request) {
         data: { subtotal: total, total },
       });
 
-      // Optional refund
-      const requestedRefund = Number.isFinite(refundAmountInput) ? Math.floor(refundAmountInput) : 0;
-      const refundAmount = refundMethod === "NONE" ? 0 : Math.max(0, Math.min(total, requestedRefund || total));
+      /* ---------------------------------------------------------
+         7️⃣ Optional refund
+      --------------------------------------------------------- */
+      const requestedRefund = Number.isFinite(refundAmountInput)
+        ? Math.floor(refundAmountInput)
+        : 0;
+
+      const refundAmount =
+        refundMethod === "NONE"
+          ? 0
+          : Math.max(0, Math.min(total, requestedRefund || total));
 
       if (refundMethod !== "NONE" && refundAmount > 0) {
         const ledgerKind: LedgerKind = refundMethod;

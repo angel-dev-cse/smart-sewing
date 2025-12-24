@@ -29,7 +29,7 @@ export default function RentalActions({
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data: { error?: string; id?: string; ok?: boolean } = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error ?? "Request failed");
     return data;
   }
@@ -63,24 +63,25 @@ export default function RentalActions({
     try {
       if (!periodStart || !periodEnd) {
         setError("Please enter periodStart and periodEnd.");
-        setLoading(null);
         return;
       }
 
-      // const data = await post(`/api/admin/rentals/${contractId}/bills`, {
-      //   periodStart,
-      //   periodEnd,
-      // });
+      const data = await post(`/api/admin/rentals/${contractId}/bills`, {
+        periodStart,
+        periodEnd,
+      });
 
-      // For now we just refresh the contract page list
+      // Refresh to show it in the bills list
       router.refresh();
 
       // Optional: clear fields after success
       setPeriodStart("");
       setPeriodEnd("");
 
-      // data.id exists (bill id) if you want later to navigate
-      // router.push(`/admin/rentals/${contractId}`) is current page anyway
+      // If API returns id, send user to the bill page (nice UX)
+      if (data?.id) {
+        router.push(`/admin/rental-bills/${data.id}`);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -128,7 +129,8 @@ export default function RentalActions({
 
         {status !== "ACTIVE" && (
           <p className="text-xs text-gray-600">
-            Bills can be generated only when the contract is <span className="font-mono">ACTIVE</span>.
+            Bills can be generated only when the contract is{" "}
+            <span className="font-mono">ACTIVE</span>.
           </p>
         )}
 
@@ -161,11 +163,7 @@ export default function RentalActions({
         {loading === "close" ? "Closing..." : "Close / Return"}
       </button>
 
-      {error && (
-        <span className="text-sm text-red-700">
-          {error}
-        </span>
-      )}
+      {error && <span className="text-sm text-red-700">{error}</span>}
     </div>
   );
 }

@@ -143,12 +143,12 @@ export default function PosClient({
         }),
       });
 
-      const data: any = await res.json();
+      const data: { invoiceId?: string; error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
 
       router.push(`/admin/invoices/${data.invoiceId}`);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(false);
     }

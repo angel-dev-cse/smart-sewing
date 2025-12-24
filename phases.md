@@ -116,6 +116,9 @@ Most inventory apps feel “real” only when these exist.
 * Damage/scrap/write-off document (Inventory OUT with reason)
 * These become your “clean correction” tools instead of manual hacks
 
+#### Concerns
+* Not any option to edit existing records
+
 ---
 
 ## 🟡 PHASE 8 — Operations & Tracking
@@ -183,6 +186,9 @@ This addresses your “tracking issues throughout the company”.
   * location
   * cost (ledger expense entry ref)
   * responsible employee/user (after Phase 9)
+
+#### Concerns
+  * Not a page to display all the sale bills
 
 ---
 
