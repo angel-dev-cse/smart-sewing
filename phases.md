@@ -1,4 +1,4 @@
-## 🧭 SMART SEWING SOLUTIONS — MASTER PHASE ROADMAP (v3.2, patched for Assets + later phases)
+## 🧭 SMART SEWING SOLUTIONS — MASTER PHASE ROADMAP (v3.6 FINAL — patched for Assets + outsourcing + calendars + offline safety + controlled edits)
 
 > **Design goal:** fast daily shop operations (sales, purchases, stock, payments)  
 > **Rule:** documents drive inventory & ledger (no “magic stock changes”)  
@@ -156,106 +156,419 @@
   - New transfer page
   - (Optional later) transfer detail page
 
-**Known issues at current stop (must finish in 8C.2):**
-- POS redirect bug: after creating POS sale, redirects to `/admin/invoices/undefined` (data created but UI route wrong).
-- POS payments UX/regression: selecting Cash/Bkash etc isn’t recording payment / invoice remains UNPAID.
-- Sales invoice draft page missing Issue/Cancel actions (regression or unfinished wiring).
-- Ensure ALL stock-changing routes use the correct `LocationStock` compound unique key and field names (avoid `productId_locationId` vs `locationId_productId` mismatch).
+---
 
-> **Commit rule for 8C.2:** only mark DONE when: transfers work + all documents update LocationStock + POS redirect/payment and invoice actions are restored.
+## 🟡 PHASE 8D — Unit Tracking (Assets) (ACTIVE / NOT STARTED)
+
+**Purpose:** “Which exact unit is this?” (serial/tag, status, history, owner, location)
+
+**Business reality (must support):**
+- `OWNED` units (shop stock)
+- `CUSTOMER_OWNED` units (service intake; not stock)
+- `RENTED_IN` units (outsourced temporarily to fulfill orders; not owned)
+
+**Core rule alignment (no confusion):**
+- **Documents drive inventory & ledger.**
+- Units/assets do **not** create stock changes or ledger entries by themselves.
+- Units/assets represent **identity + lifecycle**, while documents represent **transactions**.
+
+### ✅ 8D.1 — Unit foundation + product tracking flags + serial policy (MVP)
+- Product = SKU/catalog
+- Unit/Asset = physical identity record (serial/tag, owner, status, location, notes)
+
+**Add to Product:**
+- `Product.isAssetTracked` (default false)
+- `Product.serialRequired` (default false)
+  - All machines: `serialRequired=true`
+  - Some parts: may be true when needed (motor/board/pedal/etc)
+
+**Ownership types (enum):**
+- `OWNED`
+- `CUSTOMER_OWNED`
+- `RENTED_IN`
+
+**Unit fields (MVP):**
+- `id`
+- `ownershipType`
+- `productId`
+  - required for `OWNED` and `RENTED_IN`
+  - optional for `CUSTOMER_OWNED` (may not exist in catalog)
+- `manufacturerSerial` (nullable; required if product.serialRequired=true)
+- `uniqueSerialKey` (computed; unique)
+  - collision-safe: `BRAND-MODEL-SERIAL` (e.g., `JUKI-708D-000515`)
+- `tagCode` (shop tag; required when manufacturerSerial missing for tracked units)
+  - internal formats: `SS-M-000001` (machines), `SS-P-000001` (parts)
+- `ownerPartyId`
+  - required for `CUSTOMER_OWNED` and `RENTED_IN`
+  - null for `OWNED`
+- `brand` and `model` (mandatory for machines to form serial key correctly)
+  - also required for `CUSTOMER_OWNED` if productId is null
+- `status` enum
+- `currentLocationId` (default SHOP; selectable on intake)
+- `notes` (optional)
+- `createdAt`
+
+**Status enum (MVP standard):**
+- `AVAILABLE`
+- `IN_SERVICE`
+- `IDLE_AT_CUSTOMER` (billing stops; used in rentals)
+- `RENTED_OUT` (future use)
+- `RENTED_IN_ACTIVE` (while in your control)
+- Terminal:
+  - `SOLD`
+  - `SCRAPPED`
+  - `RETURNED_TO_SUPPLIER`
+  - `RETURNED_TO_CUSTOMER`
+
+**Serial policy:**
+- Enforce uniqueness on `uniqueSerialKey` (not raw manufacturerSerial), so collisions are handled cleanly.
+- Store both manufacturerSerial and uniqueSerialKey for audit.
+
+**Admin UX:**
+- Units list: search serial/tag, filter ownershipType/status/location/product
+- Create unit:
+  - For OWNED/RENTED_IN → product must be asset-tracked
+  - For CUSTOMER_OWNED → allow productId or free-text brand/model
+- Unit detail/edit: status/location/notes (guard terminal states)
+
+> **Commit rule 8D.1:** only mark DONE when: product flags + ownership types + unit CRUD + serialKey uniqueness + serialRequired enforcement + location selection works + no stock/ledger side effects.
 
 ---
 
-## 🟡 PHASE 8D — Asset Tracking (machines/tools as individual units) (ACTIVE / NOT STARTED)
+### ✅ 8D.2 — Mandatory unit intake on acquisition (OWNED via Purchase Bills)
+**Goal:** no shop-owned tracked machine enters stock without a unit identity.
 
-**Purpose:** “Which exact unit is this?” (serial/tag, status, history, location for physical machines/tools)
+- Purchase Bills:
+  - if product.isAssetTracked=true and qty=N → must assign N OWNED units during receiving.
+  - Receiving location selectable (default SHOP; can be WAREHOUSE/SERVICE too)
+- Purchase still creates:
+  - InventoryMovement IN
+  - LocationStock increases at chosen location
+  - Ledger (as implemented)
+- Unit assignment binds identities; does not change stock beyond the purchase doc itself.
 
-**Core clarifications (to avoid confusion):**
-- **Documents still drive inventory & ledger.**
-- Assets do **not** create stock changes or ledger entries by themselves.
-- **However:** for asset-tracked products, assets must be created/assigned as part of the document flow that brings the unit into operation.
+> **Commit rule 8D.2:** only mark DONE when: tracked purchase receiving blocked until N units assigned + chosen location respected + stock/ledger correct.
 
-### ✅ 8D.1 — Asset foundation + product tracking flag
-- Product = SKU/catalog
-- Asset = physical unit (serial/tag optional, status, notes, current location)
-- Add `Product.isAssetTracked` (default false)
-  - Only machines/tools should be set true (high-value items)
-- Asset CRUD (admin):
-  - Assets list (search by serial/tag, filter by status/location)
-  - Create asset (product must be `isAssetTracked=true`)
-  - Asset detail + edit (status, location, notes)
-- Serial/tag uniqueness rule:
-  - If serial/tag is present, it must be unique (global or per-product; pick one and enforce consistently)
+---
 
-> **Acceptance rule 8D.1:** you can’t create an asset for a non-tracked product; dropdowns and validations must enforce this.
+### ✅ 8D.3 — Document-driven unit selection + lifecycle sync (OWNED tracked flows)
+**Goal:** for tracked OWNED items, documents that represent movement/lifecycle must select units and update them.
 
-### ✅ 8D.2 — Mandatory asset intake on acquisition (OWNED stock)
-**Goal:** you cannot have an “active machine in the business” without tracking.
+- Transfers: qty N → select N units at FROM; update unit location TO
+- Sales/POS: qty N → select N units from selling location; mark `SOLD`
+- Sales returns: select returned units; restore `AVAILABLE`, set location (default SHOP)
+- Purchase returns: select units; mark `RETURNED_TO_SUPPLIER`
+- Write-off/scrap: select units; mark `SCRAPPED`
 
-- For **Purchase Bills**:
-  - If a purchase item’s product is `isAssetTracked=true` and qty = N:
-    - Require creating/assigning **N Assets** as part of the receiving flow
-  - Purchase still creates:
-    - InventoryMovement IN
-    - LocationStock(SHOP)+
-    - Ledger (as already implemented)
-  - Asset creation/assignment does **not** change stock; it only binds identities to units acquired
-- UX options (choose one standard):
-  1) Inline on Purchase Bill “Receive Assets” step, or
-  2) Purchase Bill status “Pending Assets” until assets assigned
+**Guardrails:**
+- Cannot sell/transfer terminal units
+- Cannot select units from wrong location
+- Cannot select same unit twice in a doc
+- Manual admin corrections allowed (but doc flow is primary)
 
-> **Acceptance rule 8D.2:** purchase of tracked items cannot be considered “fully received/usable” until assets are assigned for that qty.
+> **Commit rule 8D.3:** only mark DONE when: selection required for tracked flows + lifecycle sync works + guardrails enforced + no 8C regressions.
 
-### ✅ 8D.3 — Document-driven asset sync (location + lifecycle)
-**Goal:** asset current location & status remains trustworthy without manual edits.
+---
 
-- Transfers:
-  - If transfer includes asset-tracked products:
-    - Allow selecting which Assets are moved (N assets for qty N)
-    - Update each selected Asset.currentLocationId to TO location
-- Sales / POS:
-  - If selling asset-tracked products:
-    - Select which Assets are sold for qty N
-    - Mark assets as SOLD/DISPOSED (or inactive) and lock them from reuse
-- Sales returns:
-  - If returning asset-tracked products:
-    - Select which Assets are returned
-    - Restore asset to AVAILABLE and set location to SHOP
-- Purchase returns:
-  - Select which Assets are returned-to-supplier
-  - Mark assets as RETURNED_TO_SUPPLIER (or inactive)
-- Write-offs/scrap:
-  - Select which Assets are scrapped
-  - Mark SCRAPPED and lock from reuse
+### ✅ 8D.4 — CUSTOMER_OWNED intake lifecycle (service tracking without stock pollution)
+- CUSTOMER_OWNED units:
+  - ownerPartyId required
+  - productId OR brand/model required
+  - default location SHOP (you requested)
+  - status flow: `AVAILABLE` → `IN_SERVICE` → `RETURNED_TO_CUSTOMER` (terminal)
+- Guardrails:
+  - cannot be sold or included in stock movements
+  - can be linked to service tickets (Phase 8E)
 
-> **Acceptance rule 8D.3:** asset location/status must update only via documents for tracked products (manual edits allowed only for admin corrections, but document flow is the primary mechanism).
+> **Commit rule 8D.4:** only mark DONE when: intake works + lifecycle trackable + blocked from inventory/sales flows.
 
-### 🟡 8D.4 — Rentals can reserve specific asset (LATER, keep as roadmap intended)
-- Upgrade rental contracts (already exist from Phase 6) to reserve specific Assets
-- Prevent double-booking the same asset across active rentals
-- Rental lifecycle updates asset status:
-  - Active → RENTED
-  - Closed → AVAILABLE
+---
 
-> This stays “later” but is now explicitly placed as a subphase so the sequence is clear and followable.
+### ✅ 8D.5 — RENTED_IN supplier contracts + units (outsourced units)
+**Goal:** “rent from other shops to fulfill orders, then return.”
+
+**Doc:** `RentedInContract`
+- Party = supplier
+- Dates: start, expectedReturn, actualReturn
+- Status: Draft → Active → Returned/Closed
+- Units:
+  - create/select RENTED_IN units, link to contract
+  - while Active: status `RENTED_IN_ACTIVE`, location set accordingly
+- Supplier billing supports:
+  - daily aggregated monthly
+  - non-billable days (supplier calendar too; global Friday + per-supplier overrides)
+  - partial return to supplier (some units returned earlier than others)
+
+**Ledger:**
+- Separate bills + settlement entry as **ledger journal entry** referencing both bills (your preference)
+- Supplier billing: draft → edit (rates/exclusions/units) → finalize lock
+
+**No stock changes:**
+- RENTED_IN units do NOT change Product.stock / LocationStock (MVP)
+
+**Supplier bill grouping:**
+- One supplier bill per supplier per month (your preference), derived from allocations + billable days.
+
+> **Commit rule 8D.5:** only mark DONE when: contract + units + draft/final supplier bill flow + partial returns + no stock pollution.
+
+---
+
+### ✅ 8D.6 — Rentals reserve specific unit (OWNED + RENTED_IN pool) (LATER)
+- Allocate units to rental contracts:
+  - OWNED `AVAILABLE`
+  - RENTED_IN `RENTED_IN_ACTIVE`
+- Prevent double-booking
+- Rental lifecycle updates:
+  - Active → `RENTED_OUT`
+  - Closed → `AVAILABLE` (OWNED) OR `RENTED_IN_ACTIVE` (if supplier contract still active)
+- Must support partial return + idle periods at customer site
+
+> **Commit rule 8D.6:** only mark DONE when: allocation works + no double-booking + lifecycle correct.
+
+---
+
+### ✅ 8D.7 — Optional: QR/Barcode labels for units (OPTION)
+- Print QR/Barcode for unit tags
+- Scan-to-search in admin
+- Optional per product/unit
+
+---
+
+### ✅ 8D.8 — Unit attachment history (parts that move between machines) (MVP+)
+**Goal:** track motors/boards/pedals/etc that get swapped between machines.
+
+- Only for products with `isAssetTracked=true` (serial-required parts or expensive parts)
+- Attachment model:
+  - one part-unit attached to one machine at a time (enforced)
+  - full attachment history with:
+    - partUnitId
+    - machineUnitId
+    - attachDate, detachDate
+    - reason note (mandatory)
+- No stock changes from attach/detach (tracking-only)
+- UI:
+  - machine shows attached parts
+  - part shows history of machines it was attached to
+
+> **Commit rule 8D.8:** only mark DONE when: attachment history works + one-at-a-time enforced + reason required.
+
+---
+
+### ✅ 8D.9 — Unbundle/Disassembly document (doc-driven stock for extracted components) (MVP)
+**Goal:** if you remove a pedal/motor/etc and sell separately, inventory must reflect it.
+
+- New doc: `DisassemblyDoc` (or `UnbundleDoc`)
+- Choose a “source machine unit” and components extracted:
+  - creates LocationStock IN for component products (e.g., +1 pedal)
+  - if the component is serial-required, also creates a new part-unit asset and links it
+- Machine is marked with **incomplete kit flag** (your choice) after extraction.
+- Traceability:
+  - disassembly doc links to source machine unit and created part units (if any)
+
+> **Commit rule 8D.9:** only mark DONE when: disassembly creates stock IN for components + serial parts create part-unit asset + machine incomplete flag set + traceability clear.
+
+---
+
+### ✅ 8D.10 — Unit history timeline (traceability UX) (MVP)
+**Goal:** fast ops + full traceability in one place.
+
+- Unit detail page shows timeline of linked docs/events:
+  - purchase receiving (OWNED intake)
+  - sale/POS selection
+  - transfers
+  - returns
+  - write-offs/scrap
+  - service tickets + service invoices
+  - rental allocations (later)
+  - rented-in contracts (for RENTED_IN units)
+  - disassembly/unbundle refs
+  - attachment history events (8D.8)
+- Must be clickable + searchable.
+
+> **Commit rule 8D.10:** only mark DONE when: unit timeline pulls all refs correctly + links are usable.
 
 ---
 
 ## 🟡 PHASE 8E — Service & Issue Tracking (NOT STARTED)
 
-*(Asset integration matters here; so we add subphases for clarity while keeping your original scope.)*
-
 ### ✅ 8E.1 — Issue tickets / work orders foundation
 - Issue tickets/work orders
 - Status: Open → In progress → Resolved → Closed
 
-### ✅ 8E.2 — Linkage (asset/product + location + ledger expense ref)
-- Link to asset/product + location + ledger expense ref
-- Attach photos/notes (optional MVP)
-- Basic timeline view of actions/notes on ticket
+### ✅ 8E.2 — Service intake linkages (unit + party + location)
+- Link ticket to:
+  - CUSTOMER_OWNED unit (8D.4), OR
+  - OWNED unit (8D.1–8D.3)
+- Capture issue description, photos (optional), notes
+- Location context (SHOP/SERVICE)
 
-### ✅ 8E.3 — Assignment (deferred until Phase 9)
-- Assign to employee/user after Phase 9
+### ✅ 8E.3 — ServiceInvoice (single doc: labor + parts) + payments (MVP)
+**Your requirement:** single invoice with labor + parts, partial payments, ledger by payment method.
+
+- New doc: `ServiceInvoice`
+- Contains:
+  - service labor lines
+  - parts lines (inventory products)
+  - optional captured serial/tag for high-value parts when tracked
+- Posting:
+  - parts reduce LocationStock + create inventory movement refs (doc-driven)
+  - payments create ledger entries per payment method (cash/bkash/nagad/bank)
+  - supports partial payments like SalesInvoice
+
+### ✅ 8E.4 — Warranty option (with manual override + reasons)
+- Warranty fields stored:
+  - warrantyDays (default 7 unless changed)
+  - warrantyType: none / labor-only / labor+parts
+  - warrantyStartDate (usually issue date)
+- Repeat issue behavior:
+  - no auto free-labor; approved staff can override
+  - UI requires reason note on override
+- Reporting:
+  - tickets reopened within warranty window
+
+---
+
+## 🟡 PHASE 8F — Financial Ops Enhancements (NOT STARTED)
+
+### ✅ 8F.1 — Opening balances (parties + ledger)
+- Opening balances for parties (customer/supplier due)
+- Opening balances for cash/bank accounts
+- Stored as special “Opening Balance” ledger entry type
+- Reporting includes opening balances correctly
+
+### ✅ 8F.2 — Cash drawer tracking (daily)
+- Start-of-day cash
+- Cash in/out summary from ledger
+- End-of-day counted cash + discrepancy record
+- Simple “close day” workflow
+
+### ✅ 8F.3 — Rental billing calendar + exclusions + idle periods (MVP)
+**Your rule:** billed by daily rate × active billable days; Friday non-billable; custom exclusions; inclusive dates; per-unit idle.
+
+- Contract billing calendar support:
+  - default weekly non-billable: Friday
+  - per-contract excluded dates selected per billing period and stored on the generated bill
+  - supports “company closed” days
+- Per-unit usage:
+  - asset-level rental units can have active/idle periods
+  - `IDLE_AT_CUSTOMER` stops billing from a date (approved staff; reason required)
+- Generation workflow:
+  - Generate bill for any date range → select excluded dates → preview → finalize
+
+### ✅ 8F.4 — Rental settlements: partial return + damage/missing fees (MVP)
+- Partial return at unit-level
+- Damage/missing fees:
+  - default as line item on settlement bill
+  - optional “Penalty Invoice” doc for large company orders
+- Print:
+  - serial/tag list as comma-separated column when required
+
+### ✅ 8F.5 — Supplier billing generation for RENTED_IN (MVP staged)
+- Auto-generate supplier bills from:
+  - actual units allocated + billable days
+  - supports partial return to supplier
+  - supports supplier non-billable days too (global Friday + per-supplier overrides)
+- Bills are Draft then editable (rates/exclusions/unit list) then Final (locked)
+- Grouping:
+  - one supplier bill per supplier per month
+
+### ✅ 8F.6 — Settlement journal entries (MVP)
+- Support “pay the difference” via ledger journal entry referencing:
+  - your bill and their bill (or related supplier/customer bills)
+- Keeps MVP simple while enabling net settlement behavior.
+
+### ✅ 8F.7 — Bank reconciliation (MVP, recommended)
+- Import statement lines (CSV)
+- Match ledger entries to statement items (manual match)
+- Mark reconciled (protected record, admin override only)
+
+---
+
+## 🟡 PHASE 8G — Compliance + Print Options (Bangladesh-ready) (NOT STARTED)
+
+### ✅ 8G.1 — VAT/tax fields + document numbering (MVP)
+- VAT per invoice:
+  - VAT inclusive OR VAT exclusive (toggle per invoice)
+- VAT%:
+  - shop default VAT% exists
+  - editable per invoice
+- **Document numbering: separate yearly sequences for ALL document types** (your requirement)
+  - POS bills: `POS-YYYY-0001`
+  - Sales invoices: `INV-YYYY-0001`
+  - Service invoices: `SRV-YYYY-0001`
+  - Purchase bills: `PUR-YYYY-0001`
+  - Purchase returns: `PRT-YYYY-0001`
+  - Sales returns: `SRT-YYYY-0001`
+  - Rental bills: `RNT-YYYY-0001`
+  - Rented-in supplier bills: `SUP-YYYY-0001`
+  - Transfers: `TRF-YYYY-0001`
+  - Write-offs/Scrap: `WOF-YYYY-0001`
+  - Disassembly/Unbundle: `DIS-YYYY-0001`
+  - Consignment docs: `CON-YYYY-0001`
+  - (Any future doc type must declare its own prefix + yearly sequence)
+
+### ✅ 8G.2 — Bilingual print templates (OPTION)
+- Per print toggle: EN / BN / Bilingual
+- Applies to invoices/bills/receipts
+
+### ✅ 8G.3 — Print/legal footer templates (OPTION)
+- Standard terms blocks (returns policy, warranty text, etc.)
+- Configurable by admin
+
+---
+
+## 🟡 PHASE 8H — Used Machines (Trade-in / Refurb / Resale) (NOT STARTED)
+
+### ✅ 8H.1 — Trade-in intake (customer → shop)
+- Trade-in doc:
+  - captures customer details
+  - captures unit serial/model/brand
+  - unit is tracked
+- Payment:
+  - can be immediate or later (your choice)
+  - must create ledger entry linked to trade-in doc
+
+### ✅ 8H.2 — Used machine grading (internal)
+- Customizable grading labels (e.g., Excellent/Good/Fair) with optional short codes
+- Stored per used unit
+
+### ✅ 8H.3 — Refurb workflow (ledger-linked)
+- Refurb record linked to unit:
+  - parts used (stock reduces)
+  - labor notes
+  - refurb cost creates ledger expenses (your choice)
+- After refurb: unit becomes sellable (OWNED AVAILABLE)
+
+### ✅ 8H.4 — Used machine resale
+- Sell used unit by selecting the specific unit (like 8D.3)
+- Print includes serial/tag + condition notes (optional)
+
+---
+
+## 🟡 PHASE 8I — Consignment Stock (future plan) (NOT STARTED)
+
+**Purpose:** stock in shop but owned by supplier until sold.
+
+- Separate “consignment stock” totals (your choice)
+- Consignment stock must be tracked by supplier (Party)
+
+### ✅ 8I.1 — Consignment intake + stock tracking
+- Consignment intake doc:
+  - supplier Party required
+  - items received, into a location
+- Stock representation:
+  - stored separately from owned stock (no mixing)
+- Optional: for consigned machines, allow unit tracking by extending ownershipType later (e.g., `CONSIGNED`) while keeping accounting rules intact.
+
+### ✅ 8I.2 — Consignment sale + payable
+- On sale:
+  - inventory moves out (consignment stock decreases)
+  - customer payment ledger IN
+  - supplier payable increases (settled later)
+
+### ✅ 8I.3 — Consignment returns to supplier (unsold)
+- Document workflow to return unsold items
+- Updates consignment stock down and records refs
 
 ---
 
@@ -268,41 +581,68 @@
 - Audit log foundation
 
 ### ✅ 9A.1 — Authentication foundation (standard login + session)
-- Implement login + logout + session persistence
-- Protect admin routes properly (server-side protection, not only client-side)
-- Password reset flow (email) if applicable
-- Security basics: CSRF/session strategy, secure cookies, rate limit login (basic)
+- Login + logout + session persistence
+- Server-side admin protection
+- Security basics: secure cookies, basic rate limit login
 
 ### ✅ 9A.2 — Roles + permissions (module-level)
-- Define roles (minimum: Admin, Staff)
-- Module-level permissions (POS, Purchases, Inventory, Reports, Transfers, Assets, Service)
-- Enforce permissions on both API routes and UI navigation
+- Roles:
+  - Admin
+  - Staff
+- Per-user flags:
+  - `isApprovedEditor` (for controlled edits + certain sensitive actions)
+  - optional `isManager` / `canApproveOfflineIssue` (implementation detail; keep consistent)
+- Enforce permissions on API routes and UI navigation
 
 ### ✅ 9A.3 — Audit log foundation (minimum viable)
-- Add AuditLog table (who, what, entity, action, timestamp)
-- Log critical document actions: issue/cancel/returns/transfers/payments
-- Provide simple admin page to search audit logs
+- AuditLog table:
+  - who, what, entity, action, timestamp, metadata
+- Log critical actions:
+  - issue/cancel, returns, transfers, payments, unit lifecycle changes, rental billing finalize, supplier bill finalize, offline approvals
 
-> Audit is the foundation for “edit existing docs later” (keep-for-later backlog item).
+### ✅ 9A.4 — Controlled edits of issued documents (approved staff, with full history + restore)
+**Your requirement:** edits allowed for approved staff, with mandatory reason + backup copy; admin override exists; restore original version supported.
+
+- For editable docs:
+  - require reason note
+  - store a full “before” snapshot (DocumentRevision)
+  - store “after” snapshot
+  - show revision timeline on doc detail
+- Restore original:
+  - create a new revision that reverts content (audit-safe)
+- Inventory/ledger impacts:
+  - reverse old movements/ledger entries and repost new ones (traceable standard)
+- Future plan:
+  - high-risk docs can require 2-person approval later
+
+### ✅ 9A.5 — Protected records (non-editable by default; admin override only)
+- Protected by default:
+  - ledger entries/payments
+  - reconciled bank matches
+  - finalized supplier bills
+- Admin override allowed with mandatory reason + audit + snapshot (and restore support where applicable)
+
+### ✅ 9A.6 — Strict no-delete rule (system-wide)
+- No hard deletes for operational docs
+- Enforce cancel/void workflows
+- Keep references intact for traceability
 
 ## 🟡 PHASE 9B — Employee Management (directory + attribution)
 - Employee records (active/inactive)
-- “Performed by” links on documents (sales/purchase/returns/transfers/etc)
+- “Performed by” links on documents
 - Basic performance trail
 
 ### ✅ 9B.1 — Employee directory foundation
-- Employee records (name, phone, role, status active/inactive)
-- Link Employee ↔ User (if your auth uses User accounts)
-- Admin UI for listing + create/edit employees
+- Employee records (name, phone, status)
+- Link Employee ↔ User (if applicable)
 
 ### ✅ 9B.2 — Attribution plumbing (“performed by”)
-- Add performedByUserId/performedByEmployeeId to documents (where applicable)
-- Auto-fill performedBy from current session user on create/issue/pay actions
-- Display “performed by” on document detail pages
+- Auto-fill performedBy from session user on create/issue/pay actions
+- Display on documents and prints (optional)
 
-### ✅ 9B.3 — Simple performance trail
-- Employee detail page shows linked docs count (sales, purchases, rentals, service tickets)
-- Basic filters by date range (optional MVP)
+### ✅ 9B.3 — Basic performance trail
+- Employee detail: counts/timeline (sales/purchases/rentals/service)
+- Date range filters (optional MVP)
 
 ## 🟡 PHASE 9C — Salaries / Payroll (ledger-linked)
 - Payroll runs
@@ -310,21 +650,17 @@
 - Ledger OUT linked to payroll doc
 
 ### ✅ 9C.1 — Payroll configuration
-- Employee salary settings (monthly salary, default accounts/categories)
-- Define payroll period rules (month boundary, optional pro-rate later)
+- Salary settings per employee
+- Period rules
 
 ### ✅ 9C.2 — Payroll run document
-- PayrollRun document: period, employees included, gross/net, notes
-- Supports marking as paid
+- PayrollRun doc, mark paid
 
 ### ✅ 9C.3 — Ledger integration
-- On payroll run paid:
-  - Ledger OUT entries created, linked to PayrollRun
-  - Payment method/account recorded
+- Ledger OUT linked to PayrollRun
 
-### ✅ 9C.4 — Advances + deductions (optional within 9C)
-- Salary advances and deductions linked to employee + ledger
-- Payroll run can include deductions/advance settlement
+### ✅ 9C.4 — Advances + deductions (optional)
+- Linked to employee + ledger
 
 ---
 
@@ -336,35 +672,69 @@
 - Monitoring/logging basics
 
 ### ✅ 10A — Backup/export (MVP)
-- Manual export (DB backup strategy for your chosen DB)
-- Export critical data as files (CSV/JSON) for safety:
-  - Products, Parties, Ledger, Documents, Movements, LocationStock, Assets
-- Admin UI: “Export” page with download buttons
+- DB backup approach documented
+- Export critical data as CSV/JSON:
+  - products, parties, ledger, documents, movements, location stock, units/assets
 
 ### ✅ 10B — Restore/import (MVP)
-- Restore from DB backup (documented step-by-step)
-- Optional: import from exported files (CSV/JSON) with validations
-- Admin UI: “Restore” page (guarded, admin-only, confirmation required)
+- Restore steps documented
+- Admin-only restore tools (with confirmation)
 
-### ✅ 10C — Sync strategy (optional, depends on your deployment)
-- Define whether the system is:
-  - Single local machine
-  - Local network server
-  - Cloud hosted
-- If sync is required later:
-  - Introduce a safe sync plan (not full real-time replication unless needed)
+### ✅ 10C — Multi-device + Offline option + Sync plan (MVP staged)
+**Your reality:** outages in Bangladesh → must be prepared.
+**Safety boundary locked:** offline can create drafts; issuing stock-changing docs requires connection + approval.
+
+#### ✅ 10C.1 — Standard operating mode (baseline)
+- Primary server (eventually cloud hosting) holds authoritative DB
+- Shop devices connect when online
+
+#### ✅ 10C.2 — Offline Draft Queue (planned)
+- Each device can create Draft documents offline (POS draft, service intake draft, etc.)
+- Drafts carry:
+  - createdBy, createdAt, deviceId
+  - “offline-created” flag
+- At draft time:
+  - warn “stock unknown offline”
+- When online:
+  - sync draft events to server (event log)
+- Drafts are **shared** after sync (your choice).
+
+#### ✅ 10C.3 — Approval gate for offline-created drafts
+- Offline-created drafts require approval before issue:
+  - Admin OR Manager (approved staff) can approve
+- Approval is audited.
+
+#### ✅ 10C.4 — Online-only issuing for stock-changing docs (safety rule)
+- Issue/Finalize of stock-changing docs requires connection to server DB
+- Prevents silent stock corruption
+
+#### ✅ 10C.5 — Event-log sync (traceable)
+- Sync as append-only event log
+- On server, events are applied with validation
+- Conflicts:
+  - draft conflicts can be handled
+  - issuing conflicts avoided by the “online-only issue” rule
+
+#### ✅ 10C.6 — Future: true offline issuing (deferred; manual conflict resolution)
+- Only if later required.
+- Conflicts block on sync; manual resolution required.
+- Must be logged and auditable.
+
+#### ✅ 10C.7 — Mobile readiness (future-safe)
+- API contract stability
+- Auth strategy compatible with mobile
+- Responsive admin pages or app later
 
 ### ✅ 10D — Deploy plan + environment hardening
-- Environment config strategy (dev/staging/prod)
-- Proper secrets handling
-- Production build pipeline (CI optional)
-- Database migration workflow in production
-- Backups scheduled (cron/host-level)
+- Secrets handling
+- Production build pipeline
+- Migration workflow
+- Scheduled backups
 
 ### ✅ 10E — Monitoring/logging basics (MVP)
-- Error logging strategy (server logs + optional log viewer)
-- Basic health check endpoint
-- Track key failures (failed payments, failed doc issues, failed stock validations)
+- Health check
+- Error logging
+- Key failure tracking
 
 ---
 
@@ -375,76 +745,29 @@
 - Suggest products based on catalog + availability
 - Read-only
 
-### ✅ 11A.1 — Safe data layer (read-only)
-- Define what the AI can read: product catalog, prices, stock availability (read-only)
-- Redact sensitive info (cost price, supplier margins if needed)
-- Hard guardrails: no write operations
-
-### ✅ 11A.2 — Advisor UX (MVP)
-- Simple chat UI on public shop
-- Suggested products with links
-- “In stock / out of stock” messaging
-
-### ✅ 11A.3 — Quality + safety checks
-- Basic eval prompts
-- Refusal behavior (no policy violations)
-- “Not sure” fallback behavior
-
 ## 11B — AI Admin Assistant (internal)
 - Natural language → filters/reports
 - Read-only
 
-### ✅ 11B.1 — NL → structured filters (MVP)
-- Translate admin questions into existing filters:
-  - “show unpaid invoices this month”
-  - “sales today by cash”
-  - “low stock items”
-- Output must be clickable links to existing report pages/filters
-
-### ✅ 11B.2 — Admin search assistant (read-only)
-- Search across documents, parties, assets, movements
-- Return ranked results + links (no edits)
-
-### ✅ 11B.3 — Permissions/visibility alignment
-- AI respects roles/permissions from Phase 9
-- Staff users cannot query restricted info
-
 ## 11C — AI Content Assistant
 - Rewrite descriptions (EN/BN), SEO text
-
-### ✅ 11C.1 — Draft generation (read-only draft)
-- Generate description drafts (EN/BN)
-- Generate SEO titles/meta descriptions
-- Store as drafts, not auto-publish
-
-### ✅ 11C.2 — Approval workflow (minimal)
-- Admin approves/rejects drafts
-- Version history for generated drafts
-
-### ✅ 11C.3 — Bulk generation tools (optional)
-- Select multiple products and generate drafts in batch
-- Queue-based processing (later if needed)
 
 ---
 
 # ✅ “Keep for later” backlog (tracked, not blocking current phase)
 
-- Edit existing records (requires audit strategy)
-- Improve Party auto-fill in rental contracts when selecting Party
+- Improve Party auto-fill in rental contract UI
 - Sales bills list page / better discoverability
-- Ledger entries: ensure every ref type has a clean clickable destination
 - Locations enhancements:
   - Per-document location selection (purchase into WAREHOUSE, sales from SHOP, etc.)
   - Stock by location report page
   - Transfer detail page + print (optional)
-- Asset enhancements (after 8D baseline ships):
-  - OwnershipType for assets (OWNED / CUSTOMER_OWNED / RENTED_IN) if needed for service workflows
-  - Asset history page (linked docs timeline: purchase, sale, transfer, service, rental)
-  - Bulk asset intake tools (scan serials, paste list, etc.)
-  - Barcode/QR printing for asset tags
+- Deeper bank reconciliation automation
+- True offline issuing + multi-master sync only if absolutely required
 
 ---
 
-# NOTE: For each phase and subphase, you must give me some tests before I mark that phase as passed and commit it to GitHub (You should provide an appropriate message for the commit as well [Example: Phase 8C.1: Locations foundation (Location model + movement fields)]
+# NOTE: For each phase and subphase, you must give me some tests before I mark that phase as passed and commit it to GitHub
+(Provide an appropriate commit message, e.g., "Phase 8D.1: Unit tracking foundation (ownership types + serial policy + tags)")
 
 ### IMPORTANT: You are allowed to add subphases if it's necessary to cleanly implement a phase or a feature.
