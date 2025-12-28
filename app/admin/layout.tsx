@@ -29,7 +29,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/admin/purchase-returns" className="block underline">
               Purchase Returns
             </Link>
-
+            <Link className="block underline" href="/admin/transfers">
+              Transfers
+            </Link>
             <Link className="block underline" href="/admin/pos">
               POS
             </Link>
