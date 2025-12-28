@@ -121,6 +121,17 @@ enum WriteOffStatus {
   CANCELLED
 }
 
+enum LocationKind {
+  SHOP
+  WAREHOUSE
+  SERVICE
+}
+
+enum StockTransferStatus {
+  ISSUED
+  CANCELLED
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -145,6 +156,9 @@ model Product {
   salesReturnItems    SalesReturnItem[]
   purchaseReturnItems PurchaseReturnItem[]
   writeOffItems       WriteOffItem[]
+  
+  locationStocks      LocationStock[]
+  stockTransferItems  StockTransferItem[]
 }
 
 model Order {
@@ -240,9 +254,68 @@ model Location {
   movementsFrom InventoryMovement[] @relation("FromLocation")
   movementsTo   InventoryMovement[] @relation("ToLocation")
 
+  stocks        LocationStock[]
+  transfersFrom StockTransfer[] @relation("TransferFromLocation")
+  transfersTo   StockTransfer[] @relation("TransferToLocation")
+
   @@index([isActive])
   @@index([name])
 }
+
+model LocationStock {
+  locationId String
+  productId  String
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([locationId, productId])
+  @@index([productId])
+}
+
+model StockTransfer {
+  id          String              @id @default(cuid())
+  transferNo  Int                 @unique
+  status      StockTransferStatus @default(ISSUED)
+
+  fromLocationId String
+  toLocationId   String
+
+  notes    String?
+  issuedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fromLocation Location @relation("TransferFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation   Location @relation("TransferToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+
+  items StockTransferItem[]
+
+  @@index([status, createdAt])
+  @@index([fromLocationId, createdAt])
+  @@index([toLocationId, createdAt])
+}
+
+model StockTransferItem {
+  id              String @id @default(cuid())
+  stockTransferId String
+  productId       String
+
+  titleSnapshot String
+  quantity      Int
+
+  createdAt DateTime @default(now())
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([stockTransferId])
+  @@index([productId])
+}
+
 
 model SalesInvoice {
   id        String             @id @default(cuid())

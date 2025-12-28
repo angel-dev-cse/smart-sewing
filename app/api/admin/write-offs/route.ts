@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { bumpLocationStock, getDefaultLocationIds, getLocationStockQty } from "@/lib/location-stock";
 
 type Body = {
   reason?: unknown;
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
     }
 
     const createdId = await db.$transaction(async (tx) => {
+      const { shopId } = await getDefaultLocationIds(tx);
+
       const counter = await tx.invoiceCounter.upsert({
         where: { id: COUNTER_ID },
         update: { nextNo: { increment: 1 } },
@@ -52,6 +55,10 @@ export async function POST(req: Request) {
         const p = map.get(it.productId);
         if (!p) throw new Error(`Product not found: ${it.productId}`);
         if (p.stock < it.quantity) throw new Error(`Insufficient stock: ${p.title}`);
+        const shopQty = await getLocationStockQty(tx, { productId: p.id, locationId: shopId });
+        if (shopQty < it.quantity) {
+          throw new Error(`Not enough stock in SHOP. Product: ${p.title}. Have ${shopQty}, need ${it.quantity}.`);
+        }
         totalValue += p.price * it.quantity;
       }
 
@@ -85,6 +92,7 @@ export async function POST(req: Request) {
         const after = before - qty;
 
         await tx.product.update({ where: { id: p.id }, data: { stock: after } });
+        await bumpLocationStock(tx, { productId: p.id, locationId: shopId, delta: -qty });
         await tx.inventoryMovement.create({
           data: {
             productId: p.id,
@@ -95,6 +103,8 @@ export async function POST(req: Request) {
             note: `Write-off WO-${String(writeOffNo).padStart(6, "0")}${reason ? ` (${reason})` : ""}`,
             refType: "WRITE_OFF",
             refId: wo.id,
+            fromLocationId: shopId,
+            toLocationId: null,
           },
         });
       }

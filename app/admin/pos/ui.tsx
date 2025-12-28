@@ -143,10 +143,13 @@ export default function PosClient({
         }),
       });
 
-      const data: { invoiceId?: string; error?: string } = await res.json();
+      const data: { ok?: boolean; invoiceId?: string; id?: string; error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
 
-      router.push(`/admin/invoices/${data.invoiceId}`);
+      const invoiceId = data.invoiceId ?? data.id;
+      if (!invoiceId) throw new Error("Server did not return invoiceId.");
+
+      router.push(`/admin/invoices/${invoiceId}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {

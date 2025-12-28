@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { bumpLocationStock, getDefaultLocationIds } from "@/lib/location-stock";
 
 type RefundMethod = "NONE" | "CASH" | "BKASH" | "NAGAD" | "BANK";
 type PrismaRefundMethod = "CASH" | "BKASH" | "NAGAD" | "BANK";
@@ -54,6 +55,8 @@ export async function POST(req: Request) {
     }
 
     const created = await db.$transaction(async (tx) => {
+      const { shopId } = await getDefaultLocationIds(tx);
+
       const inv = await tx.salesInvoice.findUnique({
         where: { id: salesInvoiceId },
         include: { items: true },
@@ -154,6 +157,8 @@ export async function POST(req: Request) {
 
         await tx.product.update({ where: { id: it.productId }, data: { stock: afterStock } });
 
+        await bumpLocationStock(tx, { productId: it.productId, locationId: shopId, delta: it.quantity });
+
         await tx.inventoryMovement.create({
           data: {
             productId: it.productId,
@@ -164,6 +169,8 @@ export async function POST(req: Request) {
             note: `Sales return SR-${String(returnNo).padStart(6, "0")}`,
             refType: "SALES_RETURN",
             refId: sr.id,
+            fromLocationId: null,
+            toLocationId: shopId,
           },
         });
       }

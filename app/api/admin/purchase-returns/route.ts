@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { bumpLocationStock, getDefaultLocationIds, getLocationStockQty } from "@/lib/location-stock";
 
 type RefundMethod = "NONE" | "CASH" | "BKASH" | "NAGAD" | "BANK";
 type PrismaRefundMethod = "CASH" | "BKASH" | "NAGAD" | "BANK";
@@ -54,6 +55,8 @@ export async function POST(req: Request) {
     const refundAmountClean = Number.isFinite(refundAmount) ? Math.max(0, Math.floor(refundAmount)) : 0;
 
     const result = await db.$transaction(async (tx) => {
+      const { shopId } = await getDefaultLocationIds(tx);
+
       const bill = await tx.purchaseBill.findUnique({
         where: { id: purchaseBillId },
         include: { items: true },
@@ -142,10 +145,16 @@ export async function POST(req: Request) {
           throw new Error(`Insufficient stock to return: ${product.title}`);
         }
 
+        const shopQty = await getLocationStockQty(tx, { productId: it.productId, locationId: shopId });
+        if (shopQty < qty) {
+          throw new Error(`Not enough stock in SHOP to return. Product: ${product.title}. Have ${shopQty}, need ${qty}.`);
+        }
+
         const before = product.stock;
         const after = before - qty;
 
         await tx.product.update({ where: { id: it.productId }, data: { stock: after } });
+        await bumpLocationStock(tx, { productId: it.productId, locationId: shopId, delta: -qty });
         await tx.inventoryMovement.create({
           data: {
             productId: it.productId,
@@ -156,6 +165,8 @@ export async function POST(req: Request) {
             note: `Purchase return PR-${String(returnNo).padStart(6, "0")}`,
             refType: "PURCHASE_RETURN",
             refId: pr.id,
+            fromLocationId: shopId,
+            toLocationId: null,
           },
         });
       }

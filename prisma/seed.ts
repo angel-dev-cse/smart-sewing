@@ -84,7 +84,6 @@ async function main() {
       create: { name, kind: "INCOME" },
     });
   }
-
 }
 
 main()

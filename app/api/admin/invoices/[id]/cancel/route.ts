@@ -1,5 +1,7 @@
+// app/api/admin/invoices/[id]/cancel/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { bumpLocationStock, getDefaultLocationIds } from "@/lib/location-stock";
 
 export async function POST(
   _req: Request,
@@ -8,59 +10,65 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const result = await db.$transaction(async (tx) => {
+    const cancelled = await db.$transaction(async (tx) => {
+      const { shopId } = await getDefaultLocationIds(tx);
+
       const inv = await tx.salesInvoice.findUnique({
         where: { id },
         include: { items: true },
       });
 
-      if (!inv) return { ok: false as const, status: 404 as const, error: "Invoice not found." };
-      if (inv.status === "CANCELLED")
-        return { ok: false as const, status: 400 as const, error: "Invoice already cancelled." };
+      if (!inv) throw new Error("Invoice not found.");
+      if (inv.status !== "ISSUED") throw new Error("Only ISSUED invoices can be cancelled.");
 
-      // If ISSUED, refund stock + ledger IN
-      if (inv.status === "ISSUED") {
-        for (const it of inv.items) {
-          const p = await tx.product.findUnique({
-            where: { id: it.productId },
-            select: { stock: true },
-          });
-          if (!p) continue;
+      // Reverse stock OUT by adding back to SHOP
+      for (const it of inv.items) {
+        const p = await tx.product.findUnique({
+          where: { id: it.productId },
+          select: { stock: true },
+        });
+        if (!p) continue;
 
-          const beforeStock = p.stock;
-          const afterStock = beforeStock + it.quantity;
+        const beforeStock = p.stock;
+        const afterStock = beforeStock + it.quantity;
 
-          await tx.product.update({
-            where: { id: it.productId },
-            data: { stock: afterStock },
-          });
+        await tx.product.update({
+          where: { id: it.productId },
+          data: { stock: afterStock },
+        });
 
-          await tx.inventoryMovement.create({
-            data: {
-              productId: it.productId,
-              kind: "IN",
-              quantity: it.quantity,
-              beforeStock,
-              afterStock,
-              note: `Cancelled invoice INV-${String(inv.invoiceNo).padStart(6, "0")}`,
-              refType: "SALES_INVOICE",
-              refId: inv.id,
-            },
-          });
-        }
+        await bumpLocationStock(tx, { productId: it.productId, locationId: shopId, delta: it.quantity });
+
+        await tx.inventoryMovement.create({
+          data: {
+            productId: it.productId,
+            kind: "IN",
+            quantity: it.quantity,
+            beforeStock,
+            afterStock,
+            note: "Cancel invoice (stock restore)",
+            refType: "SALES_INVOICE_CANCEL",
+            refId: inv.id,
+            fromLocationId: null,
+            toLocationId: shopId,
+          },
+        });
       }
 
-      await tx.salesInvoice.update({
+      const updated = await tx.salesInvoice.update({
         where: { id: inv.id },
-        data: { status: "CANCELLED" },
+        data: {
+          status: "CANCELLED",
+        },
+        select: { id: true },
       });
 
-      return { ok: true as const, status: 200 as const };
+      return updated;
     });
 
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
+    return NextResponse.json({ ok: true, id: cancelled.id });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

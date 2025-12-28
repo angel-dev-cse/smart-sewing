@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import InvoicePaymentActions from "./payment-actions";
+import InvoiceActions from "./ui-actions";
 
 const PAYMENT_REF_TYPE = "SALES_INVOICE_PAYMENT" as const;
 
@@ -63,6 +64,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
         </div>
 
         <div className="flex flex-col items-end gap-2">
+          <InvoiceActions invoiceId={inv.id} status={inv.status} />
+
           <Link className="text-sm underline" href="/admin/invoices">
             Back
           </Link>

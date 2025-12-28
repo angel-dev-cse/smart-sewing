@@ -1,5 +1,7 @@
+// app/api/admin/invoices/[id]/issue/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { bumpLocationStock, getDefaultLocationIds, getLocationStockQty } from "@/lib/location-stock";
 
 export async function POST(
   _req: Request,
@@ -8,41 +10,40 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const result = await db.$transaction(async (tx) => {
+    const issued = await db.$transaction(async (tx) => {
+      const { shopId } = await getDefaultLocationIds(tx);
+
       const inv = await tx.salesInvoice.findUnique({
         where: { id },
         include: { items: true },
       });
 
-      if (!inv) return { ok: false as const, status: 404 as const, error: "Invoice not found." };
-      if (inv.status === "CANCELLED")
-        return { ok: false as const, status: 400 as const, error: "Cancelled invoice cannot be issued." };
-      if (inv.status === "ISSUED")
-        return { ok: false as const, status: 400 as const, error: "Invoice already issued." };
+      if (!inv) throw new Error("Invoice not found.");
+      if (inv.status !== "DRAFT") throw new Error("Only DRAFT invoices can be issued.");
+      if (inv.items.length === 0) throw new Error("Invoice has no items.");
 
-      // Validate stock for all items
+      // Validate + apply stock OUT (from SHOP)
       for (const it of inv.items) {
         const p = await tx.product.findUnique({
           where: { id: it.productId },
           select: { stock: true, title: true },
         });
-        if (!p) return { ok: false as const, status: 400 as const, error: "Product not found." };
-        if (it.quantity > p.stock) {
-          return {
-            ok: false as const,
-            status: 400 as const,
-            error: `Not enough stock for ${p.title}.`,
-          };
+        if (!p) throw new Error("Product not found.");
+        if (p.stock < it.quantity) throw new Error(`Insufficient stock: ${p.title}`);
+
+        const shopQty = await getLocationStockQty(tx, { productId: it.productId, locationId: shopId });
+        if (shopQty < it.quantity) {
+          throw new Error(`Not enough stock in SHOP. Product: ${p.title}. Have ${shopQty}, need ${it.quantity}.`);
         }
       }
 
-      // Decrement stock + ledger
+      // Apply per item stock change + movement
       for (const it of inv.items) {
         const p = await tx.product.findUnique({
           where: { id: it.productId },
           select: { stock: true },
         });
-        if (!p) continue;
+        if (!p) throw new Error("Product not found.");
 
         const beforeStock = p.stock;
         const afterStock = beforeStock - it.quantity;
@@ -52,6 +53,8 @@ export async function POST(
           data: { stock: afterStock },
         });
 
+        await bumpLocationStock(tx, { productId: it.productId, locationId: shopId, delta: -it.quantity });
+
         await tx.inventoryMovement.create({
           data: {
             productId: it.productId,
@@ -59,27 +62,30 @@ export async function POST(
             quantity: it.quantity,
             beforeStock,
             afterStock,
-            note: `Issued invoice INV-${String(inv.invoiceNo).padStart(6, "0")}`,
             refType: "SALES_INVOICE",
             refId: inv.id,
+            fromLocationId: shopId,
+            toLocationId: null,
           },
         });
       }
 
-      await tx.salesInvoice.update({
+      // Mark invoice issued
+      const updated = await tx.salesInvoice.update({
         where: { id: inv.id },
         data: {
           status: "ISSUED",
           issuedAt: new Date(),
         },
+        select: { id: true },
       });
 
-      return { ok: true as const, status: 200 as const };
+      return updated;
     });
 
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
+    return NextResponse.json({ ok: true, id: issued.id });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,5 +1,7 @@
+// app/api/admin/purchase-bills/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { bumpLocationStock, getDefaultLocationIds } from "@/lib/location-stock";
 
 type PaymentKind = "CASH" | "BKASH" | "NAGAD" | "BANK" | "NONE";
 
@@ -9,7 +11,6 @@ type Body = {
   supplierPhone?: string | null;
   notes?: string | null;
 
-  // UI uses this
   paymentKind?: PaymentKind;
   amountPaid?: number;
 
@@ -70,30 +71,25 @@ export async function POST(req: Request) {
       const quantity = normalizeInt(it?.quantity, 0);
       const unitCost = normalizeInt(it?.unitCost, -1);
 
-      if (!productId) {
-        return NextResponse.json({ error: "Invalid productId." }, { status: 400 });
-      }
-      if (!Number.isFinite(quantity) || quantity < 1) {
+      if (!productId) return NextResponse.json({ error: "Invalid productId." }, { status: 400 });
+      if (!Number.isFinite(quantity) || quantity < 1)
         return NextResponse.json({ error: "Invalid quantity." }, { status: 400 });
-      }
-      if (!Number.isFinite(unitCost) || unitCost < 0) {
+      if (!Number.isFinite(unitCost) || unitCost < 0)
         return NextResponse.json({ error: "Invalid unit cost." }, { status: 400 });
-      }
     }
 
     // If paymentKind is NONE, ignore amountPaid
     const shouldCreatePayment = paymentKind !== "NONE" && amountPaid > 0;
 
-    // Map paymentKind -> PurchasePaymentMethod + LedgerAccountKind
     const purchasePaymentMethod =
       paymentKind === "NONE" ? null : (paymentKind as "CASH" | "BKASH" | "NAGAD" | "BANK");
     const ledgerKind =
-      paymentKind === "NONE"
-        ? null
-        : (paymentKind as "CASH" | "BKASH" | "NAGAD" | "BANK");
+      paymentKind === "NONE" ? null : (paymentKind as "CASH" | "BKASH" | "NAGAD" | "BANK");
 
     const created = await db.$transaction(async (tx) => {
-      // ✅ Atomic billNo allocation (prevents duplicate billNo under concurrent requests)
+      const { shopId } = await getDefaultLocationIds(tx);
+
+      // ✅ Atomic billNo allocation
       const counter = await tx.invoiceCounter.upsert({
         where: { id: "purchase" },
         update: { nextNo: { increment: 1 } },
@@ -105,8 +101,6 @@ export async function POST(req: Request) {
 
       let subtotal = 0;
 
-      // ✅ IMPORTANT: PurchaseBill does NOT accept `partyId` scalar in create.
-      // Use relation connect instead.
       const bill = await tx.purchaseBill.create({
         data: {
           billNo,
@@ -115,13 +109,12 @@ export async function POST(req: Request) {
           notes: body.notes ? String(body.notes) : null,
           status: "ISSUED",
           issuedAt: new Date(),
-
           ...(party?.id ? { party: { connect: { id: party.id } } } : {}),
         },
         select: { id: true, billNo: true },
       });
 
-      // Items + stock IN + movement refs
+      // Items + stock IN to SHOP + movement refs
       for (const it of items) {
         const productId = String(it.productId);
         const quantity = Math.floor(Number(it.quantity));
@@ -153,6 +146,8 @@ export async function POST(req: Request) {
             data: { stock: afterStock },
           });
 
+          await bumpLocationStock(tx, { productId, locationId: shopId, delta: quantity });
+
           await tx.inventoryMovement.create({
             data: {
               productId,
@@ -162,6 +157,8 @@ export async function POST(req: Request) {
               afterStock,
               refType: "PURCHASE_BILL",
               refId: bill.id,
+              fromLocationId: null,
+              toLocationId: shopId,
             },
           });
         }
@@ -169,27 +166,24 @@ export async function POST(req: Request) {
 
       await tx.purchaseBill.update({
         where: { id: bill.id },
-        data: {
-          subtotal,
-          total: subtotal,
-        },
+        data: { subtotal, total: subtotal },
       });
 
-      // ✅ Optional: record payment + link to ledger (Phase 7B "finish now")
+      // Optional payment + ledger
       if (shouldCreatePayment && purchasePaymentMethod && ledgerKind) {
-        // Pick account of that kind
         const account = await tx.ledgerAccount.findFirst({
           where: { kind: ledgerKind, isActive: true },
           select: { id: true, name: true },
         });
 
-        // Create ledger entry OUT (money leaving the business)
+        const payAmount = Math.min(amountPaid, subtotal);
+
         const ledgerEntry = account
           ? await tx.ledgerEntry.create({
             data: {
               accountId: account.id,
               direction: "OUT",
-              amount: Math.min(amountPaid, subtotal), // don’t pay more than bill in MVP
+              amount: payAmount,
               note: `Purchase bill PB-${String(billNo).padStart(6, "0")} payment`,
               refType: "PURCHASE_BILL",
               refId: bill.id,
@@ -202,7 +196,7 @@ export async function POST(req: Request) {
           data: {
             purchaseBillId: bill.id,
             method: purchasePaymentMethod,
-            amount: Math.min(amountPaid, subtotal),
+            amount: payAmount,
             note: account ? `Paid from ${account.name}` : "Payment recorded (no ledger account found)",
             ledgerEntryId: ledgerEntry?.id ?? null,
           },

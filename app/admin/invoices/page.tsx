@@ -15,8 +15,8 @@ export default async function InvoicesPage() {
           <p className="text-sm text-gray-600">Latest 50 invoices (orders + POS).</p>
         </div>
 
-        <Link className="rounded bg-black text-white px-3 py-1 text-sm" href="/admin/pos">
-          New POS sale
+        <Link className="rounded bg-black text-white px-3 py-1 text-sm" href="/admin/invoices/new">
+          New Sales Invoice
         </Link>
       </div>
 

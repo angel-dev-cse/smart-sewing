@@ -57,3 +57,6 @@ zipping.py
 
 # Patch Files
 *.patch
+
+# Settings Files
+.vscode/
