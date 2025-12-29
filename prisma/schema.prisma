@@ -164,6 +164,10 @@ model Product {
   isAssetTracked Boolean @default(false)
   serialRequired Boolean @default(false)
 
+  // Phase 8D.1.5: Brand and model for machine SKUs
+  brand String?
+  model String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

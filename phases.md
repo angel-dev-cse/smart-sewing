@@ -1,4 +1,4 @@
-## 🧭 SMART SEWING SOLUTIONS — MASTER PHASE ROADMAP (v4.1 FINAL — patched for Assets + outsourcing + calendars + offline safety + controlled edits)
+## 🧭 SMART SEWING SOLUTIONS — MASTER PHASE ROADMAP (v4.2 FINAL — patched for Product Master Admin + navigation integrity)
 
 > **Design goal:** fast daily shop operations (sales, purchases, stock, payments)  
 > **Rule:** documents drive inventory & ledger (no “magic stock changes”)  
@@ -158,7 +158,7 @@
 
 ---
 
-## 🟡 PHASE 8D — Unit Tracking (Assets) (ACTIVE / NOT STARTED)
+## 🟡 PHASE 8D — Unit Tracking (Assets) (ACTIVE / IN PROGRESS)
 
 **Purpose:** “Which exact unit is this?” (serial/tag, status, history, owner, location)
 
@@ -234,6 +234,26 @@
 > **Commit rule 8D.1:** only mark DONE when: product flags + ownership types + unit CRUD + serialKey uniqueness + serialRequired enforcement + location selection works + no stock/ledger side effects.
 
 ---
+### ✅ 8D.1.5 — Product Master Admin (backfill) + navigation integrity (MVP)
+**Why this exists:** Phase 8D depends on being able to create/edit Products and set tracking flags.  
+In the current repo snapshot, `/admin/products` and `/admin/products/new` are linked from UI but do not exist (404), so we lock this in as a formal subphase.
+
+- Admin Products module:
+  - `/admin/products` list (search, filter by type/isActive/isAssetTracked/serialRequired)
+  - `/admin/products/new` create
+  - `/admin/products/[id]` edit + detail
+- Minimum Product fields to manage from UI (to support 8D+):
+  - title, type (MACHINE_SALE / MACHINE_RENT / PART), price, isActive
+  - `isAssetTracked` + `serialRequired`
+  - (Optional-but-recommended now, to avoid later rework) brand + model fields **on Product** for machine SKUs
+- Navigation integrity fixes:
+  - Fix any internal admin link that points to a non-existent route (e.g., `/admin/inventory/movement` → `/admin/inventory/movements`)
+  - Add a lightweight “link smoke” checklist to each phase: no 404s in sidebar + page CTAs for modules touched in that phase.
+
+> **Acceptance rule 8D.1.5:** You can create a new machine SKU, mark it `isAssetTracked=true`, and all existing “Open products / New product” links stop 404ing. No changes to inventory/ledger behavior yet.
+
+---
+
 
 ### ✅ 8D.2 — Mandatory unit intake on acquisition (OWNED via Purchase Bills)
 **Goal:** no shop-owned tracked machine enters stock without a unit identity.
