@@ -1,4 +1,4 @@
-## 🧭 SMART SEWING SOLUTIONS — MASTER PHASE ROADMAP (v3.6 FINAL — patched for Assets + outsourcing + calendars + offline safety + controlled edits)
+## 🧭 SMART SEWING SOLUTIONS — MASTER PHASE ROADMAP (v4.1 FINAL — patched for Assets + outsourcing + calendars + offline safety + controlled edits)
 
 > **Design goal:** fast daily shop operations (sales, purchases, stock, payments)  
 > **Rule:** documents drive inventory & ledger (no “magic stock changes”)  
@@ -391,75 +391,120 @@
 
 ## 🟡 PHASE 8E — Service & Issue Tracking (NOT STARTED)
 
-### ✅ 8E.1 — Issue tickets / work orders foundation
-- Issue tickets/work orders
+### ✅ 8E.1 — Issue tickets / work orders foundation (single-unit tickets)
+- **One unit per ticket** (locked)
+- Ticket can be for:
+  - `CUSTOMER_OWNED` units
+  - `OWNED` shop units
+  - `RENTED_IN` units (yes — you may service supplier-rented machines too)
 - Status: Open → In progress → Resolved → Closed
+- Required fields:
+  - Party (customer / internal / supplier as applicable)
+  - Unit reference (or intake creation if unit not yet created)
+  - Problem description + intake notes
+- Optional:
+  - Photos/attachments
+  - Priority flag (optional)
 
 ### ✅ 8E.2 — Service intake linkages (unit + party + location)
-- Link ticket to:
-  - CUSTOMER_OWNED unit (8D.4), OR
-  - OWNED unit (8D.1–8D.3)
-- Capture issue description, photos (optional), notes
-- Location context (SHOP/SERVICE)
+- Ticket links to:
+  - Unit (from 8D: `CUSTOMER_OWNED` / `OWNED` / `RENTED_IN`)
+  - Location context (SHOP/SERVICE/WAREHOUSE — as needed)
+- Unit status sync (MVP):
+  - Ticket opened → unit status can move to `IN_SERVICE` (for CUSTOMER_OWNED / OWNED / RENTED_IN)
+  - Ticket closed → status changes depend on outcome (see 8E.4 + 8E.5)
 
 ### ✅ 8E.3 — ServiceInvoice (single doc: labor + parts) + payments (MVP)
 **Your requirement:** single invoice with labor + parts, partial payments, ledger by payment method.
 
 - New doc: `ServiceInvoice`
-- Contains:
-  - service labor lines
-  - parts lines (inventory products)
-  - optional captured serial/tag for high-value parts when tracked
+- Can be created:
+  - From ticket (linked), **OR**
+  - Without ticket (walk-in quick repair) — **both supported**
+- Pricing model (MVP):
+  - **One labor line** (amount + note)
+  - Parts lines (inventory products) with qty + rate
+- Stock source for parts:
+  - **Select location at invoice time** (SHOP/WAREHOUSE) for parts stock deduction
 - Posting:
-  - parts reduce LocationStock + create inventory movement refs (doc-driven)
-  - payments create ledger entries per payment method (cash/bkash/nagad/bank)
-  - supports partial payments like SalesInvoice
+  - Parts reduce `LocationStock` at chosen location + create InventoryMovement refs (doc-driven)
+  - Payments create ledger entries per payment method (Cash/Bkash/Nagad/Bank)
+  - Supports partial payments like SalesInvoice
 
-### ✅ 8E.4 — Warranty option (with manual override + reasons)
+### ✅ 8E.4 — Serial-tracked parts installed / replaced (unit-aware)
+- When a serial-tracked part is installed:
+  - **Select the part-unit asset if available**
+  - Else allow free-text serial/tag entry **with mandatory reason note**
+- Old part outcomes (must support all):
+  - A) Returned to customer (no stock)
+  - B) Kept by shop as spare (stock IN via Disassembly/Unbundle-style doc or a service-return subflow)
+  - C) Scrapped (write-off / scrap)
+- Must preserve traceability:
+  - service invoice links to installed part unit (when selected)
+  - installed/removed parts update attachment history if 8D.8 is implemented
+
+### ✅ 8E.5 — Warranty model (invoice-level + parts-level)
 - Warranty fields stored:
   - warrantyDays (default 7 unless changed)
   - warrantyType: none / labor-only / labor+parts
-  - warrantyStartDate (usually issue date)
-- Repeat issue behavior:
+  - warrantyStartDate = **ServiceInvoice issue date** (locked)
+- Warranty applies to:
+  - A) the service job overall (invoice-level)
+  - B) individual replaced parts (parts-level) — **both supported**
+- Repeat issue handling:
   - no auto free-labor; approved staff can override
   - UI requires reason note on override
 - Reporting:
   - tickets reopened within warranty window
+  - optional report: parts replaced under warranty (later)
 
----
+> **Commit rule 8E:** only mark DONE when: ticket flow + service invoice flow + location-based parts deduction + partial payments + serial-tracked parts rules + warranty model work end-to-end.
+
 
 ## 🟡 PHASE 8F — Financial Ops Enhancements (NOT STARTED)
 
-### ✅ 8F.1 — Opening balances (parties + ledger)
-- Opening balances for parties (customer/supplier due)
-- Opening balances for cash/bank accounts
-- Stored as special “Opening Balance” ledger entry type
+### ✅ 8F.1 — Opening balances (parties + ledger) — via wizard
+- Opening balances for:
+  - Parties (customer/supplier due/advance)
+  - Cash account opening
+  - Bank/Bkash/Nagad opening
+- Implement as an **Opening Balance wizard**:
+  - guided forms that post “Opening Balance” ledger entries with clear refs
 - Reporting includes opening balances correctly
 
-### ✅ 8F.2 — Cash drawer tracking (daily)
-- Start-of-day cash
-- Cash in/out summary from ledger
-- End-of-day counted cash + discrepancy record
-- Simple “close day” workflow
+### ✅ 8F.2 — Cash drawer tracking (daily) — supports multi-register
+- Support:
+  - single drawer (MVP)
+  - **multiple registers/drawers** (enabled as an option)
+- Daily close workflow (required):
+  - Start-of-day cash
+  - Expected cash auto-calculated from ledger cash entries
+  - End-of-day counted cash
+  - Discrepancy stored (+/-) with **mandatory reason note** (locked)
+- Optional:
+  - “Close day” report print/export
 
 ### ✅ 8F.3 — Rental billing calendar + exclusions + idle periods (MVP)
-**Your rule:** billed by daily rate × active billable days; Friday non-billable; custom exclusions; inclusive dates; per-unit idle.
-
-- Contract billing calendar support:
-  - default weekly non-billable: Friday
-  - per-contract excluded dates selected per billing period and stored on the generated bill
-  - supports “company closed” days
+- Default weekly non-billable: **Friday** (locked)
+- Per-contract excluded dates selected per billing period and stored on the generated bill
+- Add a **monthly template option**:
+  - store month template (holidays/weekends)
+  - applied during bill generation but editable per bill (company-specific closures can be added)
+- Inclusive day count (locked):
+  - billedDays = endDate − startDate + 1, then subtract excluded days
 - Per-unit usage:
   - asset-level rental units can have active/idle periods
   - `IDLE_AT_CUSTOMER` stops billing from a date (approved staff; reason required)
 - Generation workflow:
-  - Generate bill for any date range → select excluded dates → preview → finalize
+  - Generate bill → apply month template (optional) → add/remove excluded dates → preview → finalize
 
 ### ✅ 8F.4 — Rental settlements: partial return + damage/missing fees (MVP)
 - Partial return at unit-level
-- Damage/missing fees:
-  - default as line item on settlement bill
+- Damage/missing fees must support:
+  - line item on RentalBill
   - optional “Penalty Invoice” doc for large company orders
+- Default ledger category for penalties:
+  - **Other income / penalty income** (locked)
 - Print:
   - serial/tag list as comma-separated column when required
 
@@ -468,31 +513,40 @@
   - actual units allocated + billable days
   - supports partial return to supplier
   - supports supplier non-billable days too (global Friday + per-supplier overrides)
-- Bills are Draft then editable (rates/exclusions/unit list) then Final (locked)
+- Bills are Draft → editable (rates/exclusions/unit list) → Final (locked)
 - Grouping:
-  - one supplier bill per supplier per month
+  - one supplier bill per supplier per month (locked)
+- Rate handling:
+  - supports both stored daily rates and per-bill custom overrides (locked)
 
 ### ✅ 8F.6 — Settlement journal entries (MVP)
 - Support “pay the difference” via ledger journal entry referencing:
   - your bill and their bill (or related supplier/customer bills)
-- Keeps MVP simple while enabling net settlement behavior.
 
-### ✅ 8F.7 — Bank reconciliation (MVP, recommended)
-- Import statement lines (CSV)
+### ✅ 8F.7 — Bank reconciliation (MVP) — Bank + Bkash + Nagad
+- Import statement lines (CSV) for:
+  - Bank
+  - Bkash
+  - Nagad
 - Match ledger entries to statement items (manual match)
 - Mark reconciled (protected record, admin override only)
 
----
+> **Commit rule 8F:** only mark DONE when: opening balance wizard + cash drawer close + rental exclusions/idle billing + supplier bill generation + settlement journals + reconciliation flows work and are auditable.
+
 
 ## 🟡 PHASE 8G — Compliance + Print Options (Bangladesh-ready) (NOT STARTED)
 
-### ✅ 8G.1 — VAT/tax fields + document numbering (MVP)
+### ✅ 8G.1 — VAT/tax fields + document numbering + rounding (MVP)
 - VAT per invoice:
   - VAT inclusive OR VAT exclusive (toggle per invoice)
+  - show VAT% separately on prints (locked)
 - VAT%:
   - shop default VAT% exists
   - editable per invoice
-- **Document numbering: separate yearly sequences for ALL document types** (your requirement)
+- Rounding rules (locked):
+  - Cash totals: round to nearest **1 BDT**
+  - Digital totals (Bkash/Nagad/Bank): keep **2 decimals**
+- **Document numbering: separate yearly sequences for ALL document types** (locked)
   - POS bills: `POS-YYYY-0001`
   - Sales invoices: `INV-YYYY-0001`
   - Service invoices: `SRV-YYYY-0001`
@@ -505,17 +559,19 @@
   - Write-offs/Scrap: `WOF-YYYY-0001`
   - Disassembly/Unbundle: `DIS-YYYY-0001`
   - Consignment docs: `CON-YYYY-0001`
-  - (Any future doc type must declare its own prefix + yearly sequence)
 
-### ✅ 8G.2 — Bilingual print templates (OPTION)
-- Per print toggle: EN / BN / Bilingual
-- Applies to invoices/bills/receipts
+### ✅ 8G.2 — Print templates (MVP)
+- Print size (MVP locked):
+  - **A4** invoice/bill print
+- Bilingual print:
+  - Per print toggle: EN / BN / Bilingual
 
 ### ✅ 8G.3 — Print/legal footer templates (OPTION)
 - Standard terms blocks (returns policy, warranty text, etc.)
 - Configurable by admin
 
----
+> **Commit rule 8G:** only mark DONE when: VAT inclusive/exclusive works + VAT% shown + rounding rules applied + yearly sequences for all docs + A4 print templates + bilingual toggle work.
+
 
 ## 🟡 PHASE 8H — Used Machines (Trade-in / Refurb / Resale) (NOT STARTED)
 
@@ -536,7 +592,7 @@
 - Refurb record linked to unit:
   - parts used (stock reduces)
   - labor notes
-  - refurb cost creates ledger expenses (your choice)
+  - refurb cost creates ledger expenses (locked)
 - After refurb: unit becomes sellable (OWNED AVAILABLE)
 
 ### ✅ 8H.4 — Used machine resale
@@ -557,7 +613,9 @@
   - supplier Party required
   - items received, into a location
 - Stock representation:
-  - stored separately from owned stock (no mixing)
+  - extend LocationStock with an `ownershipBucket` (OWNED / CONSIGNMENT)
+  - owned stock remains the default OWNED bucket
+  - consignment stock is tracked separately per supplier (no mixing)
 - Optional: for consigned machines, allow unit tracking by extending ownershipType later (e.g., `CONSIGNED`) while keeping accounting rules intact.
 
 ### ✅ 8I.2 — Consignment sale + payable
@@ -575,199 +633,460 @@
 # 🟡 PHASE 9 — People, Security, Accountability (NOT STARTED)
 
 ## 🟡 PHASE 9A — Security & Multi-User
-- Proper auth
-- Roles (Admin/Staff)
-- Permissions per module
-- Audit log foundation
 
-### ✅ 9A.1 — Authentication foundation (standard login + session)
-- Login + logout + session persistence
-- Server-side admin protection
-- Security basics: secure cookies, basic rate limit login
+**Goals:** proper login, module permissions, audit trails, controlled edits with restore, and strict “no delete”.
 
-### ✅ 9A.2 — Roles + permissions (module-level)
-- Roles:
-  - Admin
-  - Staff
-- Per-user flags:
-  - `isApprovedEditor` (for controlled edits + certain sensitive actions)
-  - optional `isManager` / `canApproveOfflineIssue` (implementation detail; keep consistent)
-- Enforce permissions on API routes and UI navigation
+### ✅ 9A.1 — Authentication foundation (username/phone + password; admin reset)
+- Login identifiers (MVP locked):
+  - **Username OR phone + password** (allow both)
+  - Email is not required (Bangladesh shop reality)
+- User table fields (MVP):
+  - username (unique)
+  - phone (unique, optional but recommended)
+  - passwordHash
+  - roleId (links to Role)
+  - flags:
+    - `isApprovedEditor` (independent of role)
+    - `isDisabled`
+- Sessions:
+  - server-side route protection for all admin routes
+  - secure cookies
+  - basic login rate limiting
+- Password reset (MVP locked):
+  - **Admin resets staff password** (no email reset flow)
 
-### ✅ 9A.3 — Audit log foundation (minimum viable)
-- AuditLog table:
-  - who, what, entity, action, timestamp, metadata
-- Log critical actions:
-  - issue/cancel, returns, transfers, payments, unit lifecycle changes, rental billing finalize, supplier bill finalize, offline approvals
+> **Commit rule 9A.1:** only mark DONE when: login works via username OR phone, sessions persist, admin routes are protected server-side, and admin can reset staff passwords.
 
-### ✅ 9A.4 — Controlled edits of issued documents (approved staff, with full history + restore)
-**Your requirement:** edits allowed for approved staff, with mandatory reason + backup copy; admin override exists; restore original version supported.
+### ✅ 9A.2 — Roles catalog (first-class roles + future roles)
+- Roles are first-class and configurable.
+- Seed the initial roles you listed:
+  - Admin, CEO, Manager, Staff, Accountant, Engineer, Helper
+- Allow “other roles created later”:
+  - Role CRUD for Admin (create/rename/disable roles)
+- Role names are business-facing labels; permissions are assigned separately (9A.3).
 
-- For editable docs:
-  - require reason note
-  - store a full “before” snapshot (DocumentRevision)
-  - store “after” snapshot
-  - show revision timeline on doc detail
-- Restore original:
-  - create a new revision that reverts content (audit-safe)
-- Inventory/ledger impacts:
-  - reverse old movements/ledger entries and repost new ones (traceable standard)
-- Future plan:
-  - high-risk docs can require 2-person approval later
+> **Commit rule 9A.2:** only mark DONE when: role table exists, default roles are seeded, and admin can manage roles.
 
-### ✅ 9A.5 — Protected records (non-editable by default; admin override only)
-- Protected by default:
+### ✅ 9A.3 — Permissions (module-level, enforce on API + UI)
+- Permission model:
+  - seed **predefined permission templates per role** (Admin/CEO/Manager/Staff/Accountant/Engineer/Helper)
+  - allow manual adjustments later (locked)
+  - module-level permissions (view/create/edit/issue/cancel/pay/finalize/export/approve) per module
+- Minimum modules to cover:
+  - POS, Sales Invoices, Purchases, Rentals, Inventory, Returns/Corrections, Transfers, Assets/Units, Service, Parties, Ledger, Reports, Settings
+- Enforce permissions:
+  - on API routes (hard enforcement)
+  - in UI navigation (hide/disable) — but API remains the source of truth
+
+> **Commit rule 9A.3:** only mark DONE when: permissions are enforced server-side across modules and the UI respects them.
+
+### ✅ 9A.4 — “Approved editor” + sensitive approvals
+- `isApprovedEditor` flag is independent of role (locked).
+- Use this flag to gate:
+  - controlled edits of issued documents (9A.6)
+  - marking `IDLE_AT_CUSTOMER` (Phase 8F)
+  - approving offline-created drafts (Phase 10C)
+- Keep Admin override for everything, but require reason + audit.
+
+> **Commit rule 9A.4:** only mark DONE when: the flag gates the intended sensitive actions.
+
+### ✅ 9A.5 — Audit log + revision retention (hybrid, forever + 30-day pool)
+- AuditLog retention: **keep forever** (locked).
+- Hybrid capture (locked):
+  - snapshots (full before/after) for:
+    - issued documents
+    - payments / ledger-linked actions
+  - diffs for other routine edits
+- Additional shop requirement (locked):
+  - keep a **full copy/revision of every other document** for **30 days**, then allow Admin to decide what to keep/discard.
+  - admin “discard revision copies older than 30 days” action must itself be audited.
+- Audit must include:
+  - who, action, entity, timestamp
+  - reason note (when required)
+  - metadata (old/new ids, amounts, counts, etc.)
+
+> **Commit rule 9A.5:** only mark DONE when: audit logging is comprehensive and retention/cleanup actions are traceable.
+
+### ✅ 9A.6 — Controlled edits of issued documents (approved editors; reverse & repost; restore)
+- Editable by approved editors (locked list):
+  - SalesInvoice, POS Bill, PurchaseBill, RentalBill, ServiceInvoice
+  - Returns docs, Transfers, Write-offs/Scrap
+  - Supplier (RENTED_IN) bills
+- Edit flow (MVP):
+  - require **Edit Reason Category** + free-text note
+  - create DocumentRevision snapshot “before”
+  - apply edit → create snapshot “after”
+- Restore:
+  - restore is a new revision that reverts to a chosen snapshot (keeps audit chain)
+- Inventory/ledger integrity (locked):
+  - on edit/restore: **reverse old movements/ledger entries and repost new ones**
+  - all reversals/reposts must be linked to the edit revision id for traceability
+
+> **Commit rule 9A.6:** only mark DONE when: edit + restore works and inventory/ledger is correct via reverse & repost with full traceability.
+
+### ✅ 9A.7 — Protected records + strict no-delete rule (system-wide)
+- Protected by default (admin override only, with reason + audit + snapshot):
   - ledger entries/payments
-  - reconciled bank matches
-  - finalized supplier bills
-- Admin override allowed with mandatory reason + audit + snapshot (and restore support where applicable)
+  - reconciled bank matches (Phase 8F.7)
+  - finalized supplier bills (Phase 8D/8F)
+- Strict no-delete rule:
+  - no hard deletes for operational docs
+  - enforce cancel/void workflows everywhere
+  - keep references intact
 
-### ✅ 9A.6 — Strict no-delete rule (system-wide)
-- No hard deletes for operational docs
-- Enforce cancel/void workflows
-- Keep references intact for traceability
-
-## 🟡 PHASE 9B — Employee Management (directory + attribution)
-- Employee records (active/inactive)
-- “Performed by” links on documents
-- Basic performance trail
-
-### ✅ 9B.1 — Employee directory foundation
-- Employee records (name, phone, status)
-- Link Employee ↔ User (if applicable)
-
-### ✅ 9B.2 — Attribution plumbing (“performed by”)
-- Auto-fill performedBy from session user on create/issue/pay actions
-- Display on documents and prints (optional)
-
-### ✅ 9B.3 — Basic performance trail
-- Employee detail: counts/timeline (sales/purchases/rentals/service)
-- Date range filters (optional MVP)
-
-## 🟡 PHASE 9C — Salaries / Payroll (ledger-linked)
-- Payroll runs
-- Salary/advance/deductions
-- Ledger OUT linked to payroll doc
-
-### ✅ 9C.1 — Payroll configuration
-- Salary settings per employee
-- Period rules
-
-### ✅ 9C.2 — Payroll run document
-- PayrollRun doc, mark paid
-
-### ✅ 9C.3 — Ledger integration
-- Ledger OUT linked to PayrollRun
-
-### ✅ 9C.4 — Advances + deductions (optional)
-- Linked to employee + ledger
+> **Commit rule 9A.7:** only mark DONE when: deletes are blocked at API level and protected records behave correctly.
 
 ---
+
+## 🟡 PHASE 9B — Employee Management (directory + attribution)
+
+### ✅ 9B.1 — Employee directory foundation (employees may exist without login)
+- Employees can exist without a User login (locked).
+- Employee fields (MVP):
+  - name, phone, role/jobTitle label, status active/inactive
+- Optional link:
+  - Employee ↔ User (nullable)
+- Admin UI:
+  - list + create/edit employees
+
+> **Commit rule 9B.1:** only mark DONE when: employees can be managed independently of logins.
+
+### ✅ 9B.2 — Attribution plumbing (“performed by” = both user + employee)
+- Documents store both (locked):
+  - performedByUserId (auth identity)
+  - performedByEmployeeId (HR identity)
+- Auto-fill performedBy from current session user on create/issue/pay actions.
+- Display “performed by” on document details and prints (optional).
+
+> **Commit rule 9B.2:** only mark DONE when: attribution is consistently stored and visible across docs.
+
+### ✅ 9B.3 — Basic performance trail (MVP)
+- Employee detail shows:
+  - counts + timeline of linked docs (sales, purchases, rentals, service tickets)
+- Simple filters by date range (optional MVP)
+
+> **Commit rule 9B.3:** only mark DONE when: employee timeline is usable and accurate.
+
+---
+
+## 🟡 PHASE 9C — Salaries / Payroll (ledger-linked)
+
+### ✅ 9C.1 — Payroll configuration (monthly + early pay / mid-month exit)
+- Salary cycle (locked):
+  - monthly payroll
+  - supports early payout and mid-month exit settlement
+- Employee payroll settings:
+  - base salary
+  - allowances (transport/food)
+
+### ✅ 9C.2 — Advances + deductions (MVP)
+- Record advances and deductions linked to:
+  - employee + ledger
+- Advances can be settled through payroll run.
+
+### ✅ 9C.3 — Payroll run document (monthly)
+- PayrollRun doc:
+  - period
+  - employees included
+  - components: base salary, allowances, deductions, advances settlement
+  - notes
+- Supports marking as paid.
+
+### ✅ 9C.4 — Ledger integration (all payment methods)
+- Payroll payments create ledger OUT entries, linked to PayrollRun
+- Payment methods supported (locked):
+  - Cash, Bank, Bkash, Nagad
+
+### ✅ 9C.5 — Final settlement for quitting (recommended within 9C)
+- Generate a settlement calculation:
+  - pro-rate salary for days worked
+  - add allowances
+  - subtract advances/deductions
+- Post ledger OUT when paid
+- Keep as a doc-linked record
+
+> **Commit rule 9C:** only mark DONE when: payroll runs + advances/deductions + ledger postings work end-to-end and are traceable.
+
 
 # 🟢 PHASE 10 — Backup, Sync & Deploy (NOT STARTED)
 
-- Backup/export/restore
-- Production hardening
-- Deployment plan
-- Monitoring/logging basics
+**Goal:** safe multi-PC operations in Bangladesh reality (power/internet outages), without corrupting stock/ledger.
 
-### ✅ 10A — Backup/export (MVP)
-- DB backup approach documented
-- Export critical data as CSV/JSON:
-  - products, parties, ledger, documents, movements, location stock, units/assets
+**Hard safety rule (locked):** Offline mode can create **drafts only**. Issuing stock/ledger requires online connection + approval.
 
-### ✅ 10B — Restore/import (MVP)
-- Restore steps documented
-- Admin-only restore tools (with confirmation)
+## ✅ PHASE 10A — Backup/export (MVP)
 
-### ✅ 10C — Multi-device + Offline option + Sync plan (MVP staged)
-**Your reality:** outages in Bangladesh → must be prepared.
-**Safety boundary locked:** offline can create drafts; issuing stock-changing docs requires connection + approval.
+### ✅ 10A.1 — PostgreSQL production baseline
+- Production target DB: **PostgreSQL** (locked)
+- Document a standard “dev/staging/prod” DB setup strategy.
 
-#### ✅ 10C.1 — Standard operating mode (baseline)
-- Primary server (eventually cloud hosting) holds authoritative DB
-- Shop devices connect when online
+### ✅ 10A.2 — Automated backups (every 6 hours, with smart fallback)
+- Backup cadence:
+  - attempt every **6 hours** (locked)
+  - if backup system is unavailable, fall back to daily and log failures (practical safety)
+- Store backups:
+  - local disk on the server PC (MVP locked)
+  - keep the system open to adding other targets later (external drive/cloud) without redesign
 
-#### ✅ 10C.2 — Offline Draft Queue (planned)
-- Each device can create Draft documents offline (POS draft, service intake draft, etc.)
-- Drafts carry:
-  - createdBy, createdAt, deviceId
-  - “offline-created” flag
-- At draft time:
-  - warn “stock unknown offline”
-- When online:
-  - sync draft events to server (event log)
-- Drafts are **shared** after sync (your choice).
+### ✅ 10A.3 — Portable exports (CSV + JSON)
+- Export formats (locked):
+  - CSV for master data (Products, Parties, Accounts, Employees, Locations, etc.)
+  - JSON for documents and their items/revisions (Sales, Purchases, Rentals, Service, Transfers, Movements, Assets/Units, etc.)
+- Exports must be re-importable (Phase 10B) and versioned.
 
-#### ✅ 10C.3 — Approval gate for offline-created drafts
-- Offline-created drafts require approval before issue:
-  - Admin OR Manager (approved staff) can approve
-- Approval is audited.
-
-#### ✅ 10C.4 — Online-only issuing for stock-changing docs (safety rule)
-- Issue/Finalize of stock-changing docs requires connection to server DB
-- Prevents silent stock corruption
-
-#### ✅ 10C.5 — Event-log sync (traceable)
-- Sync as append-only event log
-- On server, events are applied with validation
-- Conflicts:
-  - draft conflicts can be handled
-  - issuing conflicts avoided by the “online-only issue” rule
-
-#### ✅ 10C.6 — Future: true offline issuing (deferred; manual conflict resolution)
-- Only if later required.
-- Conflicts block on sync; manual resolution required.
-- Must be logged and auditable.
-
-#### ✅ 10C.7 — Mobile readiness (future-safe)
-- API contract stability
-- Auth strategy compatible with mobile
-- Responsive admin pages or app later
-
-### ✅ 10D — Deploy plan + environment hardening
-- Secrets handling
-- Production build pipeline
-- Migration workflow
-- Scheduled backups
-
-### ✅ 10E — Monitoring/logging basics (MVP)
-- Health check
-- Error logging
-- Key failure tracking
+> **Commit rule 10A:** only mark DONE when: PostgreSQL baseline is documented + backups run every 6 hours + exports are downloadable and complete.
 
 ---
+
+## ✅ PHASE 10B — Restore/import (MVP)
+
+### ✅ 10B.1 — Restore permissions + maintenance mode (locked)
+- Restore permission: **Admin only** (locked)
+- Restore requires **maintenance mode**:
+  - block issuing/critical writes during restore
+  - show banner in UI
+
+### ✅ 10B.2 — Restore from DB backup (MVP)
+- Provide a step-by-step restore guide:
+  - which commands to run
+  - where backups are stored
+  - how to validate restore success
+
+### ✅ 10B.3 — Import from exports (optional but recommended)
+- Import CSV/JSON exports with validation:
+  - handle version mismatch safely
+  - prevent duplicate keys
+- Import is also gated by maintenance mode.
+
+> **Commit rule 10B:** only mark DONE when: admin can restore safely with maintenance mode and validate success.
+
+---
+
+## ✅ PHASE 10C — Multi-PC + Offline Draft Queue + Sync (MVP)
+
+### ✅ 10C.1 — Deployment mode: LAN server now, cloud later (locked)
+- Initial: **one shop server PC** running DB + app
+- Other devices connect over LAN
+- Later: migrate to cloud hosting (planned) without changing data model.
+
+### ✅ 10C.2 — Offline drafts for ALL docs (locked)
+- Offline device can create drafts for:
+  - all document types (sales/purchase/transfer/service/etc.) (locked)
+- Offline UI must show:
+  - “stock unknown offline” warning on draft creation where relevant
+  - clear indicator: “Draft only — cannot issue offline”
+
+### ✅ 10C.3 — Sync mechanism: event-log (append-only) (locked)
+- Sync is implemented as append-only events:
+  - create draft
+  - update draft
+  - attach notes
+  - request approval
+- Each event is traceable (who/when/device).
+
+### ✅ 10C.4 — Draft approval queue (Admin + Manager; shared ownership)
+- After sync, drafts must be approved before issuing by:
+  - **Admin + Manager** (locked)
+- Draft ownership after sync:
+  - **shared** — any approved staff can continue/edit (locked)
+- Approval actions are audited (Phase 9A).
+
+### ✅ 10C.5 — Conflict policy (locked)
+- If drafts compete for stock:
+  - warn at draft time (stock unknown offline)
+  - enforce strictly at issue time (online)
+  - conflicts block issuing and require manual resolution (no auto-merge)
+
+> **Commit rule 10C:** only mark DONE when: offline drafts work end-to-end, sync is event-log, approval gate exists, and stock safety is guaranteed.
+
+---
+
+## ✅ PHASE 10D — Deploy plan + environment hardening (MVP)
+
+### ✅ 10D.1 — Environments + secrets
+- Dev / staging / prod environment variable strategy
+- Secrets handling rules (no secrets in repo)
+
+### ✅ 10D.2 — Production migration workflow
+- Safe Prisma migration procedure for production:
+  - backup before migrate
+  - migrate
+  - validate critical flows
+
+### ✅ 10D.3 — Remote access: cloud web access
+- Preferred remote access:
+  - web access via cloud host (locked)
+- Document:
+  - domain + SSL
+  - basic access controls
+  - backup policy in cloud environment
+
+> **Commit rule 10D:** only mark DONE when: production hardening steps are documented and repeatable.
+
+---
+
+## ✅ PHASE 10E — Monitoring/logging basics (MVP)
+
+### ✅ 10E.1 — System logs page (admin UI)
+- Admin “System Logs” page (locked)
+- Log categories:
+  - backup failures
+  - restore/import actions
+  - sync errors
+  - stock validation failures at issue time
+
+### ✅ 10E.2 — Audit alignment for blocking errors (locked)
+- When system errors block issuing:
+  - create AuditLog entry (locked)
+  - link error log id to the audit record
+
+> **Commit rule 10E:** only mark DONE when: logs are visible in admin UI and critical blocking events are auditable.
+
 
 # 🟣 PHASE 11 — AI (Optional, Read-only first) (NOT STARTED)
 
-## 11A — AI Product Advisor (customer-facing)
-- Chat UI on shop
-- Suggest products based on catalog + availability
-- Read-only
-
-## 11B — AI Admin Assistant (internal)
-- Natural language → filters/reports
-- Read-only
-
-## 11C — AI Content Assistant
-- Rewrite descriptions (EN/BN), SEO text
+**Global AI safety rule (locked):**
+- AI features are **read-only** (no writes, no issuing, no editing documents).
+- AI must respect **Phase 9 permissions**.
+- AI runs **cloud-only** for MVP (locked).
 
 ---
 
-# ✅ “Keep for later” backlog (tracked, not blocking current phase)
+## 🟣 11A — AI Product Advisor (customer-facing)
 
-- Improve Party auto-fill in rental contract UI
-- Sales bills list page / better discoverability
-- Locations enhancements:
-  - Per-document location selection (purchase into WAREHOUSE, sales from SHOP, etc.)
-  - Stock by location report page
-  - Transfer detail page + print (optional)
-- Deeper bank reconciliation automation
-- True offline issuing + multi-master sync only if absolutely required
+**Goal:** help customers choose the right machine/plan (buy vs rent), then drive them to your products with direct links.
+
+### ✅ 11A.1 — Safe customer data layer (read-only)
+- AI can read:
+- AI can read:
+  - product name + description
+  - public price
+  - rental availability (yes/no)
+  - store address/contact
+  - (optional) public delivery/arrangement note (“we can arrange delivery/availability on request”)
+- Stock visibility (customer-facing):
+  - **Default (locked for now): omit stock display** (no “in stock/out of stock”, no exact qty)
+  - Advisor can say: “We can arrange what you need — contact us / place order” and route to products.
+  - Keep as a future option (toggle) to enable:
+    - availability tiers, and later exact quantity if you decide it’s safe.
+
+> **Commit rule 11A.1:** only mark DONE when: AI is strictly read-only and can only access the approved customer-visible fields.
+
+### ✅ 11A.2 — Advisor UX (EN/BN) + “buy vs rent” recommendation
+- Language support (locked): **English + Bangla** (toggle/auto-detect)
+- Customer chat flow:
+  - ask about use case (home/industrial), budget, workload, duration (rent), location
+  - recommend a plan:
+    - “Buy” plan (with 1–3 best-fit models)
+    - “Rent” plan (with recommended rental models + suggested duration)
+  - every recommended item must have:
+    - clickable link to product page
+    - price/rent indicator
+    - availability label
+
+> **Commit rule 11A.2:** only mark DONE when: the advisor consistently produces clickable product links and works in EN + BN.
+
+### ✅ 11A.3 — Fallback behavior + human escalation
+- When uncertain:
+  - provide best recommendation
+  - **suggest human contact** (locked) and show contact options
+- Must refuse unsafe requests (no policy violations, no account actions).
+
+> **Commit rule 11A.3:** only mark DONE when: uncertainty handling is consistent and human escalation works.
 
 ---
 
-# NOTE: For each phase and subphase, you must give me some tests before I mark that phase as passed and commit it to GitHub
-(Provide an appropriate commit message, e.g., "Phase 8D.1: Unit tracking foundation (ownership types + serial policy + tags)")
+## 🟣 11B — AI Admin Assistant (internal)
 
+**Access (locked):** Admin-only.
+
+**Goal:** accelerate admin workflows, search, and insights — still read-only.
+
+### ✅ 11B.1 — NL → clickable links (filters/reports)
+- Translate admin queries into existing report links/filters:
+  - “unpaid invoices this month”
+  - “sales today by cash”
+  - “low stock items”
+  - “which supplier bills are due”
+- Output must be clickable deep links to the relevant admin pages.
+
+> **Commit rule 11B.1:** only mark DONE when: links are accurate and permission-respecting.
+
+### ✅ 11B.2 — Admin search assistant (entities)
+- Search across:
+  - parties
+  - invoices/bills/returns
+  - assets/units
+  - inventory movements
+  - transfers
+  - service tickets
+- Return ranked results + links (no edits).
+
+> **Commit rule 11B.2:** only mark DONE when: search results are correct, fast, and clickable.
+
+### ✅ 11B.3 — Explain “why stock changed” (traceability)
+- Given a product (and optionally a location/unit), AI can explain:
+  - which documents/movements caused the change
+  - timeline summary with links
+- This is powered by:
+  - InventoryMovements + LocationStock + document refs (no guessing)
+
+> **Commit rule 11B.3:** only mark DONE when: explanations are traceable and link back to real docs/movements.
+
+### ✅ 11B.4 — Trends + insights (read-only analytics)
+- Provide insights such as:
+  - seasonal demand trends
+  - top customers/companies
+  - frequent rental durations
+  - late-payment patterns
+- Must be grounded in existing reports/data (no hallucinated conclusions).
+- Output includes:
+  - a short narrative summary
+  - links to the underlying reports or filtered lists
+
+> **Commit rule 11B.4:** only mark DONE when: insights always link to underlying data sources and are reproducible.
+
+### ✅ 11B.5 — People-sensitive restrictions (your preference)
+You requested: “Only restrict sensitive info of people.”
+
+- Still enforce:
+  - **no payroll/personnel-sensitive data** shown unless explicitly on payroll module and Admin is viewing
+  - redact unnecessary personal details in summaries (show links instead of repeating full phone/address in the chat)
+- This keeps the assistant useful while preventing accidental leakage in AI responses.
+
+> **Commit rule 11B.5:** only mark DONE when: people-sensitive info is protected and behavior is consistent.
+
+---
+
+## 🟣 11C — AI Content Assistant (EN/BN descriptions)
+
+**Goal:** generate product descriptions + SEO drafts to save time.
+
+### ✅ 11C.1 — Draft generation (EN/BN) — approval required
+- Generate:
+  - product descriptions (EN/BN)
+  - SEO title + meta description
+- Storage (locked):
+  - **draft only**
+  - manual approval required
+
+> **Commit rule 11C.1:** only mark DONE when: drafts never auto-publish.
+
+### ✅ 11C.2 — Version history (keep last N)
+- Keep last **N** versions per product.
+- Default N suggestion: 10 (configurable in settings).
+- Record who approved and when.
+
+> **Commit rule 11C.2:** only mark DONE when: version history works and approvals are traceable.
+
+### ✅ 11C.3 — Bulk generation tools (batch select products)
+- Select multiple products → generate drafts in batch
+- Show queue/progress UI (MVP can be simple)
+
+> **Commit rule 11C.3:** only mark DONE when: batch generation is stable and drafts are reviewable.
+
+---
+
+# NOTE: For each phase and subphase, you must give me some tests before I mark that phase as passed and commit it to GitHub.
 ### IMPORTANT: You are allowed to add subphases if it's necessary to cleanly implement a phase or a feature.
+
