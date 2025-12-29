@@ -144,12 +144,19 @@ export default async function AdminReportsPage() {
         createdAt: true,
       },
     }),
-    db.product.findMany({
-      where: { isActive: true, stock: { lte: 2 } },
-      orderBy: [{ stock: "asc" }, { title: "asc" }],
-      take: 25,
-      select: { id: true, title: true, stock: true, price: true },
-    }),
+    (async () => {
+      const rawProducts = await db.product.findMany({
+        where: { isActive: true, stock: { lte: 2 } },
+        orderBy: [{ stock: "asc" }, { title: "asc" }],
+        take: 25,
+        select: { id: true, title: true, stock: true, price: true },
+      });
+      // Convert prices from paisa to BDT for display
+      return rawProducts.map(product => ({
+        ...product,
+        price: product.price / 100, // Convert from paisa to BDT
+      }));
+    })(),
     db.ledgerAccount.findMany({
       where: { isActive: true },
       orderBy: [{ kind: "asc" }, { name: "asc" }],

@@ -43,6 +43,11 @@ export default function NewProductForm() {
         throw new Error("Please enter a valid stock quantity");
       }
 
+      // Client-side guardrails: if isAssetTracked=true, brand+model required
+      if (formData.isAssetTracked && (!formData.brand.trim() || !formData.model.trim())) {
+        throw new Error("Brand and model are required for asset-tracked products");
+      }
+
       const res = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,34 +256,36 @@ export default function NewProductForm() {
         {/* Brand */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Brand
+            Brand{formData.isAssetTracked ? " *" : ""}
           </label>
           <input
             type="text"
             value={formData.brand}
             onChange={(e) => updateFormData("brand", e.target.value)}
             className="w-full border rounded px-3 py-2"
+            required={formData.isAssetTracked}
             placeholder="e.g., JUKI, BROTHER, SINGER"
           />
           <div className="text-xs text-gray-600 mt-1">
-            Recommended for machine products
+            {formData.isAssetTracked ? "Required for asset-tracked products" : "Recommended for machine products"}
           </div>
         </div>
 
         {/* Model */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Model
+            Model{formData.isAssetTracked ? " *" : ""}
           </label>
           <input
             type="text"
             value={formData.model}
             onChange={(e) => updateFormData("model", e.target.value)}
             className="w-full border rounded px-3 py-2"
+            required={formData.isAssetTracked}
             placeholder="e.g., DDL-8700, NX-600, Heavy Duty"
           />
           <div className="text-xs text-gray-600 mt-1">
-            Recommended for machine products
+            {formData.isAssetTracked ? "Required for asset-tracked products" : "Recommended for machine products"}
           </div>
         </div>
 

@@ -8,6 +8,12 @@ export default async function AdminPosPage() {
     orderBy: { title: "asc" },
   });
 
+  // Convert prices from paisa to BDT for UI display
+  const productsWithBDTPrices = products.map(product => ({
+    ...product,
+    price: product.price / 100, // Convert from paisa to BDT
+  }));
+
   const parties = await db.party.findMany({
     where: { isActive: true },
     select: { id: true, name: true, phone: true, type: true },
@@ -17,7 +23,7 @@ export default async function AdminPosPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">POS</h1>
-      <PosClient products={products} parties={parties} />
+      <PosClient products={productsWithBDTPrices} parties={parties} />
     </div>
   );
 } 

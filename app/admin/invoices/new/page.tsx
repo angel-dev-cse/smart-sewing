@@ -9,6 +9,12 @@ export default async function NewInvoicePage() {
     select: { id: true, title: true, price: true, stock: true, type: true },
   });
 
+  // Convert prices from paisa to BDT for UI display
+  const productsWithBDTPrices = products.map(product => ({
+    ...product,
+    price: product.price / 100, // Convert from paisa to BDT
+  }));
+
   return (
     <div className="max-w-3xl space-y-4">
       <h1 className="text-2xl font-bold">New Sales Invoice</h1>
@@ -16,7 +22,7 @@ export default async function NewInvoicePage() {
         Create a draft invoice for walk-in sales / machine transfers. You’ll issue it later.
       </p>
 
-      <NewInvoiceForm products={products} />
+      <NewInvoiceForm products={productsWithBDTPrices} />
     </div>
   );
 }

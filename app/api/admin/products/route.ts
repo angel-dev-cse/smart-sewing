@@ -55,6 +55,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Price must be non-negative" }, { status: 400 });
     }
 
+    // Guardrails: if isAssetTracked=true, brand+model required
+    if (body.isAssetTracked && (!body.brand || !body.model)) {
+      return NextResponse.json({
+        error: "Brand and model are required for asset-tracked products"
+      }, { status: 400 });
+    }
+
     // Generate slug from title
     const slug = body.title
       .toLowerCase()

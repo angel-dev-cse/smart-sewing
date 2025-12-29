@@ -78,6 +78,27 @@ export async function PATCH(req: Request, { params }: Props) {
       return NextResponse.json({ error: "Stock must be a non-negative integer" }, { status: 400 });
     }
 
+    // Get current product for validation
+    const currentProductForValidation = await db.product.findUnique({
+      where: { id },
+      select: { isAssetTracked: true, brand: true, model: true }
+    });
+
+    // Determine final isAssetTracked value (use provided value or current)
+    const finalIsAssetTracked = body.isAssetTracked !== undefined ? body.isAssetTracked : currentProductForValidation?.isAssetTracked;
+
+    // Guardrails: if isAssetTracked=true, brand+model required
+    if (finalIsAssetTracked) {
+      const finalBrand = body.brand !== undefined ? body.brand : currentProductForValidation?.brand;
+      const finalModel = body.model !== undefined ? body.model : currentProductForValidation?.model;
+
+      if (!finalBrand || !finalModel) {
+        return NextResponse.json({
+          error: "Brand and model are required for asset-tracked products"
+        }, { status: 400 });
+      }
+    }
+
     // Handle title change (regenerate slug)
     let slug = currentProduct.slug;
     if (body.title && body.title !== currentProduct.title) {

@@ -61,6 +61,11 @@ export default function ProductDetail({ product }: Props) {
         throw new Error("Please enter a valid stock quantity");
       }
 
+      // Client-side guardrails: if isAssetTracked=true, brand+model required
+      if (formData.isAssetTracked && (!formData.brand.trim() || !formData.model.trim())) {
+        throw new Error("Brand and model are required for asset-tracked products");
+      }
+
       const res = await fetch(`/api/admin/products/${product.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -285,25 +290,27 @@ export default function ProductDetail({ product }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Brand
+              Brand{formData.isAssetTracked ? " *" : ""}
             </label>
             <input
               type="text"
               value={formData.brand}
               onChange={(e) => updateFormData("brand", e.target.value)}
               className="w-full border rounded px-3 py-2"
+              required={formData.isAssetTracked}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Model
+              Model{formData.isAssetTracked ? " *" : ""}
             </label>
             <input
               type="text"
               value={formData.model}
               onChange={(e) => updateFormData("model", e.target.value)}
               className="w-full border rounded px-3 py-2"
+              required={formData.isAssetTracked}
             />
           </div>
         </div>

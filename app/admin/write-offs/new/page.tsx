@@ -8,10 +8,16 @@ export default async function NewWriteOffPage() {
     select: { id: true, title: true, stock: true, price: true },
   });
 
+  // Convert prices from paisa to BDT for UI display
+  const productsWithBDTPrices = products.map(product => ({
+    ...product,
+    price: product.price / 100, // Convert from paisa to BDT
+  }));
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">New Write-off</h1>
-      <NewWriteOffUI products={products} />
+      <NewWriteOffUI products={productsWithBDTPrices} />
     </div>
   );
 }

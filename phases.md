@@ -224,7 +224,7 @@ If an action is blocked by business rules, the UI should:
   - PurchaseBill issue (8D.2)
   - UsedIntake accept (8H)
   - ConsignmentIntake accept (8I)
-- The only exception is **Unitization** (8D.1.7): converting **already-existing tracked stock** into units **without changing stock**.
+- The only exception is **Unitization** (8D.1.6): converting **already-existing tracked stock** into units **without changing stock**.
 - `/admin/units/new` must **never** create OWNED.
 
 #### S5. Concurrency + locking standard
@@ -249,7 +249,7 @@ Until 9A is implemented, anything that would normally be an AuditLog must at lea
 
 ---
 
-### 🟡 8D.1.6 — Product Catalog Admin (REQUIRED PREREQ; add if missing)
+### ✅ 8D.1.5 — Product Master Admin (backfill) + navigation integrity (MVP) (DONE)
 **Why:** without product create/edit, you cannot safely drive unit tracking, VAT, pricing, or serial rules.
 
 **Deliverables**
@@ -277,11 +277,41 @@ Until 9A is implemented, anything that would normally be an AuditLog must at lea
 
 
 
-### 🟡 8D.1.7 — Go‑live Unitization for existing tracked stock (NO stock change)
 
-**Why this exists:** If you already have `isAssetTracked=true` products with stock recorded before unit tracking, you must create matching OWNED Units so later phases (8D.3+) can require unit selection.
+> **Acceptance rule 8D.1.5:** From the admin UI, you can create/edit Products and set `isAssetTracked` and `serialRequired`, and all admin navigation links used in Phase 8D stop 404’ing. (No inventory/ledger behavior changes in this subphase.)
 
-**What it does:** Converts already-recorded `LocationStock.qty` into **OWNED Units**, without changing stock/ledger.
+
+### ✅ 8D.1.6 — Go‑live Unitization for existing tracked stock (no stock/ledger impact)
+
+**Why this exists:** As soon as Phase **8D.3** requires selecting specific Units for Sales/Transfers/Returns/Write‑offs, any **existing** “machine stock” that predates unit tracking must be converted into Units, otherwise staff will be blocked from issuing documents.
+
+**Rule:** This is **identity bookkeeping only**. It must **not** change:
+- `Product.stock`
+- `LocationStock`
+- any ledger totals
+- any inventory movement totals
+
+**Workflow (MVP):**
+- Add an admin “Unitize Stock” tool for Products where `isAssetTracked=true`.
+- For each (Product, Location) where `LocationStock.qty = N` and `Units at that location = M`:
+  - Allow creating **(N − M)** Units to reconcile identity count to stock count.
+  - Each created Unit must follow your serial/tag policy:
+    - If manufacturer serial exists: require Brand + Model + ManufacturerSerial; compute `uniqueSerialKey`.
+    - If no manufacturer serial: require server‑generated shop tag (per-prefix counter).
+- Each unitization run creates a **UnitizationBatch** record (or similar) that stores:
+  - who ran it, when, device/session
+  - productId, locationId
+  - count created
+  - optional notes (“backfilled from pre‑unit era”)
+- Units created by unitization are OWNED (shop) unless explicitly marked otherwise by an Admin override.
+
+**Guardrails:**
+- Unitization is blocked if `LocationStock.qty < Units count` (meaning identity already exceeds stock; needs investigation).
+- Unitization must be re-runnable safely (idempotent by reconciling N vs M).
+- Clear UI warnings: “This does not change stock; it only creates unit identities.”
+
+> **Acceptance rule 8D.1.6:** For any asset‑tracked Product with existing stock, staff can create enough Units so that **Units count == LocationStock qty** per location, with no changes to stock totals or ledger entries.
+
 
 #### Rules (LOCKED)
 - Only for products where `isAssetTracked=true`.
@@ -305,7 +335,7 @@ Until 9A is implemented, anything that would normally be an AuditLog must at lea
 #### Done when
 - You can take any tracked product that has stock, run Unitization, and after that the system forces unit selection on Sales/Transfers.
 
-**Commit message:** `Phase 8D.1.7: unitize existing tracked stock into OWNED units without changing stock`
+**Commit message:** `Phase 8D.1.6: unitize existing tracked stock into OWNED units without changing stock`
 
 ---
 ### 🟡 8D.2 — Mandatory unit intake on Purchases (OWNED)
@@ -358,7 +388,7 @@ Until 9A is implemented, anything that would normally be an AuditLog must at lea
 - The OWNED option is **not shown** in UI.
 - API hard-block:
   - `POST /api/admin/units` with `ownershipType=OWNED` returns **403** with code `OWNED_UNIT_CREATION_FORBIDDEN`.
-- The ONLY non-document path to create OWNED units is the **Unitization wizard (8D.1.7)**.
+- The ONLY non-document path to create OWNED units is the **Unitization wizard (8D.1.6)**.
 
 #### 8D.2.4 — Transaction, idempotency, and failure UX (LOCKED)
 - PurchaseBill issue is executed in a **single DB transaction**.
