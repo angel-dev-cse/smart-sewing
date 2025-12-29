@@ -132,6 +132,24 @@ enum StockTransferStatus {
   CANCELLED
 }
 
+enum OwnershipType {
+  OWNED
+  CUSTOMER_OWNED
+  RENTED_IN
+}
+
+enum UnitStatus {
+  AVAILABLE
+  IN_SERVICE
+  IDLE_AT_CUSTOMER
+  RENTED_OUT
+  RENTED_IN_ACTIVE
+  SOLD
+  SCRAPPED
+  RETURNED_TO_SUPPLIER
+  RETURNED_TO_CUSTOMER
+}
+
 model Product {
   id          String      @id @default(cuid())
   title       String
@@ -141,6 +159,10 @@ model Product {
   price       Int // store in BDT as integer (e.g., 25000)
   stock       Int         @default(0)
   isActive    Boolean     @default(true)
+
+  // Phase 8D.1: Asset tracking flags
+  isAssetTracked Boolean @default(false)
+  serialRequired Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -156,9 +178,12 @@ model Product {
   salesReturnItems    SalesReturnItem[]
   purchaseReturnItems PurchaseReturnItem[]
   writeOffItems       WriteOffItem[]
-  
+
   locationStocks      LocationStock[]
   stockTransferItems  StockTransferItem[]
+
+  // Phase 8D.1: Asset tracking
+  units Unit[]
 }
 
 model Order {
@@ -257,6 +282,9 @@ model Location {
   stocks        LocationStock[]
   transfersFrom StockTransfer[] @relation("TransferFromLocation")
   transfersTo   StockTransfer[] @relation("TransferToLocation")
+
+  // Phase 8D.1: Unit locations
+  units Unit[]
 
   @@index([isActive])
   @@index([name])
@@ -821,6 +849,41 @@ model Party {
   salesReturns    SalesReturn[]
   purchaseReturns PurchaseReturn[]
 
+  // Phase 8D.1: Unit ownership
+  units Unit[]
+
   @@index([type, isActive])
   @@index([name])
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  ownershipType OwnershipType
+  productId String?
+
+  manufacturerSerial String?
+  uniqueSerialKey    String?   @unique
+  tagCode           String?
+
+  ownerPartyId String?
+  brand        String
+  model        String
+
+  status UnitStatus @default(AVAILABLE)
+  currentLocationId String?
+  notes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  ownerParty Party?  @relation(fields: [ownerPartyId], references: [id], onDelete: SetNull)
+  currentLocation Location? @relation(fields: [currentLocationId], references: [id], onDelete: SetNull)
+
+  // Future: relations to documents, service tickets, etc.
+
+  @@index([productId])
+  @@index([ownerPartyId])
+  @@index([ownershipType, status])
+  @@index([currentLocationId])
 }

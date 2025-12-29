@@ -9,13 +9,13 @@
       {
         "name": "Docker",
         "commands": [
-          "clear & docker compose up -d\n"
+          "docker compose up -d\n"
         ]
       },
       {
         "name": "Dev Server",
         "commands": [
-          "clear & pnpm dev\n"
+          "pnpm dev\n"
         ]
       }
     ]

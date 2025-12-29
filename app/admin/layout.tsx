@@ -47,6 +47,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block underline" href="/admin/inventory">
               Inventory
             </Link>
+            <Link className="block underline" href="/admin/units">
+              Units / Assets
+            </Link>
             <Link className="block underline" href="/admin/invoices">
               Invoices
             </Link>
