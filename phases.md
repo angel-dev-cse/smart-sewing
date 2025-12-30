@@ -281,7 +281,7 @@ Until 9A is implemented, anything that would normally be an AuditLog must at lea
 > **Acceptance rule 8D.1.5:** From the admin UI, you can create/edit Products and set `isAssetTracked` and `serialRequired`, and all admin navigation links used in Phase 8D stop 404’ing. (No inventory/ledger behavior changes in this subphase.)
 
 
-### ✅ 8D.1.6 — Go‑live Unitization for existing tracked stock (no stock/ledger impact)
+### ✅ 8D.1.6 — Go‑live Unitization for existing tracked stock (no stock/ledger impact) (DONE)
 
 **Why this exists:** As soon as Phase **8D.3** requires selecting specific Units for Sales/Transfers/Returns/Write‑offs, any **existing** “machine stock” that predates unit tracking must be converted into Units, otherwise staff will be blocked from issuing documents.
 

@@ -53,6 +53,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link className="block underline" href="/admin/units">
               Units / Assets
             </Link>
+            <Link className="block underline ml-4 text-sm text-gray-600" href="/admin/units/unitize-stock">
+              Unitize Stock
+            </Link>
             <Link className="block underline" href="/admin/invoices">
               Invoices
             </Link>

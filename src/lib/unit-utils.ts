@@ -29,12 +29,19 @@ export function computeUniqueSerialKey(brand: string, model: string, manufacture
  * Generates a unique tag code for units without manufacturer serial.
  * Format: SS-[TYPE]-[NUMBER] where TYPE is M for machines, P for parts
  */
-export function generateTagCode(type: 'M' | 'P'): string {
-  // In a real implementation, this would check the database for the next available number
-  // For now, return a placeholder format
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `SS-${type}-${timestamp}${random}`;
+export async function generateTagCode(db: any, type: 'M' | 'P'): Promise<string> {
+  const prefix = `SS-${type}`;
+
+  // Get next value from counter (atomically increment)
+  const result = await db.shopTagCounter.upsert({
+    where: { prefix },
+    update: { nextValue: { increment: 1 } },
+    create: { prefix, nextValue: 2 }, // Start from 00001, so next is 2
+    select: { nextValue: true }
+  });
+
+  const number = (result.nextValue - 1).toString().padStart(5, '0');
+  return `${prefix}-${number}`;
 }
 
 /**

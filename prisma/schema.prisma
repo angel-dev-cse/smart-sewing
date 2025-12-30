@@ -188,6 +188,9 @@ model Product {
 
   // Phase 8D.1: Asset tracking
   units Unit[]
+
+  // Phase 8D.1.6: Unitization batches
+  unitizationBatches UnitizationBatch[]
 }
 
 model Order {
@@ -289,6 +292,9 @@ model Location {
 
   // Phase 8D.1: Unit locations
   units Unit[]
+
+  // Phase 8D.1.6: Unitization batches
+  unitizationBatches UnitizationBatch[]
 
   @@index([isActive])
   @@index([name])
@@ -884,10 +890,45 @@ model Unit {
   ownerParty Party?  @relation(fields: [ownerPartyId], references: [id], onDelete: SetNull)
   currentLocation Location? @relation(fields: [currentLocationId], references: [id], onDelete: SetNull)
 
+  // Phase 8D.1.6: Unitization tracking
+  unitizationBatchId String?
+  unitizationBatch   UnitizationBatch? @relation(fields: [unitizationBatchId], references: [id], onDelete: SetNull)
+
   // Future: relations to documents, service tickets, etc.
 
   @@index([productId])
   @@index([ownerPartyId])
   @@index([ownershipType, status])
   @@index([currentLocationId])
+  @@index([unitizationBatchId])
+}
+
+model UnitizationBatch {
+  id          String   @id @default(cuid())
+  productId   String
+  locationId  String
+
+  countCreated Int
+  reasonNote   String?
+
+  performedByUserId String?  // Future: when user auth is implemented
+  performedAt        DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  units     Unit[]
+
+  @@index([productId, locationId, createdAt])
+  @@unique([productId, locationId, performedAt]) // Prevent duplicate runs at same time
+}
+
+model ShopTagCounter {
+  prefix    String @id
+  nextValue Int    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
