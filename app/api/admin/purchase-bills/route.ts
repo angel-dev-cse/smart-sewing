@@ -90,14 +90,36 @@ export async function POST(req: Request) {
       const { shopId } = await getDefaultLocationIds(tx);
 
       // ✅ Atomic billNo allocation
-      const counter = await tx.invoiceCounter.upsert({
+      // Check if counter exists, if not, initialize based on existing bills
+      let counter = await tx.invoiceCounter.findUnique({
         where: { id: "purchase" },
-        update: { nextNo: { increment: 1 } },
-        create: { id: "purchase", nextNo: 1 },
         select: { nextNo: true },
       });
 
-      const billNo = counter.nextNo;
+      let billNo: number;
+
+      if (!counter) {
+        // Counter doesn't exist - find max billNo to avoid conflicts
+        const maxBill = await tx.purchaseBill.findFirst({
+          orderBy: { billNo: "desc" },
+          select: { billNo: true },
+        });
+        // Initialize counter to max+1 (or 1 if no bills exist)
+        // Use this value directly, then update counter for next time
+        billNo = maxBill ? maxBill.billNo + 1 : 1;
+        
+        await tx.invoiceCounter.create({
+          data: { id: "purchase", nextNo: billNo + 1 },
+        });
+      } else {
+        // Counter exists - increment and use the value
+        counter = await tx.invoiceCounter.update({
+          where: { id: "purchase" },
+          data: { nextNo: { increment: 1 } },
+          select: { nextNo: true },
+        });
+        billNo = counter.nextNo;
+      }
 
       let subtotal = 0;
 

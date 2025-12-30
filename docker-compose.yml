@@ -1,17 +1,17 @@
 services:
-  db:
-    image: postgres:15
-    platform: linux/amd64
-    container_name: smartsewing_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: smartsewing
-      POSTGRES_PASSWORD: smartsewing_password
-      POSTGRES_DB: smartsewing
-    ports:
-      - "5432:5432"
-    volumes:
-      - smartsewing_pgdata:/var/lib/postgresql/data
+  # db:
+  #   image: postgres:15
+  #   platform: linux/amd64
+  #   container_name: smartsewing_db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: smartsewing
+  #     POSTGRES_PASSWORD: smartsewing_password
+  #     POSTGRES_DB: smartsewing
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - smartsewing_pgdata:/var/lib/postgresql/data
   db3:
     image: postgres:15
     platform: linux/amd64
@@ -22,12 +22,11 @@ services:
       POSTGRES_PASSWORD: smartsewing_password
       POSTGRES_DB: smartsewing_v3
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
-      - smartsewing_pgdata:/var/lib/postgresql/data
+      - smartsewing_pgdata3:/var/lib/postgresql/data
 
 
 volumes:
-  smartsewing_pgdata:
-
-  
+  # smartsewing_pgdata:
+  smartsewing_pgdata3:

@@ -894,6 +894,9 @@ model Unit {
   unitizationBatchId String?
   unitizationBatch   UnitizationBatch? @relation(fields: [unitizationBatchId], references: [id], onDelete: SetNull)
 
+  // Phase 8D.2.1: Identity field revision tracking
+  identityRevisions UnitIdentityRevision[]
+
   // Future: relations to documents, service tickets, etc.
 
   @@index([productId])
@@ -931,4 +934,32 @@ model ShopTagCounter {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model UnitIdentityRevision {
+  id        String @id @default(cuid())
+  unitId    String
+
+  // Before/after snapshots of identity fields
+  oldBrand              String?
+  oldModel              String?
+  oldManufacturerSerial String?
+  oldTagCode            String?
+  oldUniqueSerialKey    String?
+
+  newBrand              String?
+  newModel              String?
+  newManufacturerSerial String?
+  newTagCode            String?
+  newUniqueSerialKey    String?
+
+  // Change metadata
+  changeReason String // Mandatory reason note
+
+  performedByUserId String?  // Future: when user auth is implemented
+  performedAt       DateTime @default(now())
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([unitId, performedAt])
 }

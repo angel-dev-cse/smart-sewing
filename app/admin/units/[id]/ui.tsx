@@ -9,6 +9,12 @@ type Unit = {
   status: string;
   currentLocationId: string | null;
   notes: string | null;
+  // Phase 8D.2.1: Identity fields for editing
+  brand: string;
+  model: string;
+  manufacturerSerial: string | null;
+  tagCode: string | null;
+  uniqueSerialKey: string | null;
 };
 
 type Location = { id: string; code: string; name: string };
@@ -41,7 +47,20 @@ export default function UnitDetail({ unit, locations }: Props) {
     status: unit.status,
     currentLocationId: unit.currentLocationId || "",
     notes: unit.notes || "",
+    // Phase 8D.2.1: Identity fields
+    brand: unit.brand,
+    model: unit.model,
+    manufacturerSerial: unit.manufacturerSerial || "",
+    tagCode: unit.tagCode || "",
+    changeReason: "",
   });
+
+  // Track if identity fields are being changed
+  const identityFieldsChanged =
+    formData.brand !== unit.brand ||
+    formData.model !== unit.model ||
+    formData.manufacturerSerial !== (unit.manufacturerSerial || "") ||
+    formData.tagCode !== (unit.tagCode || "");
 
   const isTerminalStatus = TERMINAL_STATUSES.includes(unit.status);
   const isStatusChangeAllowed = !isTerminalStatus || formData.status === unit.status;
@@ -148,6 +167,83 @@ export default function UnitDetail({ unit, locations }: Props) {
             ))}
           </select>
         </div>
+
+        {/* Phase 8D.2.1: Identity Fields */}
+        <div className="border-t pt-4">
+          <h3 className="font-medium text-gray-900 mb-3">Identity Information</h3>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Brand *
+              </label>
+              <input
+                type="text"
+                value={formData.brand}
+                onChange={(e) => setFormData(prev => ({ ...prev, brand: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Model *
+              </label>
+              <input
+                type="text"
+                value={formData.model}
+                onChange={(e) => setFormData(prev => ({ ...prev, model: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Manufacturer Serial
+              </label>
+              <input
+                type="text"
+                value={formData.manufacturerSerial}
+                onChange={(e) => setFormData(prev => ({ ...prev, manufacturerSerial: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+                placeholder="ABC123..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tag Code
+              </label>
+              <input
+                type="text"
+                value={formData.tagCode}
+                onChange={(e) => setFormData(prev => ({ ...prev, tagCode: e.target.value }))}
+                className="w-full border rounded px-3 py-2"
+                placeholder="SS-M-00001..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Change Reason - required when identity fields change */}
+        {identityFieldsChanged && (
+          <div className="border-t pt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Change Reason *
+              <span className="text-xs text-gray-500 ml-2">
+                Required when updating identity information
+              </span>
+            </label>
+            <textarea
+              value={formData.changeReason}
+              onChange={(e) => setFormData(prev => ({ ...prev, changeReason: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+              rows={2}
+              placeholder="Explain why identity information is being changed..."
+              required={identityFieldsChanged}
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
