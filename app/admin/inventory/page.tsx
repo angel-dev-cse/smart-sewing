@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ProductType } from "@prisma/client";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   searchParams?: Promise<{
@@ -195,7 +196,7 @@ export default async function InventoryPage({ searchParams }: Props) {
                 </td>
                 <td className="p-3 font-mono">{p.type}</td>
                 <td className="p-3 font-mono">{p.stock}</td>
-                <td className="p-3">৳ {p.price.toLocaleString()}</td>
+                <td className="p-3">{formatBdtFromPaisa(p.price)}</td>
                 <td className="p-3 whitespace-nowrap">{new Date(p.updatedAt).toLocaleString()}</td>
               </tr>
             ))}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import BillActions from "@/app/admin/rentals/[id]/bill-actions";
 
 type Props = { params: Promise<{ id: string }> };
@@ -84,10 +85,12 @@ export default async function RentalBillDetailPage({ params }: Props) {
               <div>
                 <p className="font-medium">{it.titleSnapshot}</p>
                 <p className="text-sm text-gray-600">
-                  Qty {it.quantity} × ৳ {it.monthlyRate.toLocaleString()} / month
+                  Qty {it.quantity} × {formatBdtFromPaisa(it.monthlyRate)} / month
                 </p>
               </div>
-              <div className="font-semibold">৳ {(it.monthlyRate * it.quantity).toLocaleString()}</div>
+              <div className="font-semibold">
+                {formatBdtFromPaisa(it.monthlyRate * it.quantity)}
+              </div>
             </li>
           ))}
         </ul>
@@ -95,11 +98,11 @@ export default async function RentalBillDetailPage({ params }: Props) {
         <div className="border-t mt-4 pt-4 text-sm space-y-2">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>৳ {bill.subtotal.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(bill.subtotal)}</span>
           </div>
           <div className="flex justify-between font-bold">
             <span>Total</span>
-            <span>৳ {bill.total.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(bill.total)}</span>
           </div>
         </div>
       </div>

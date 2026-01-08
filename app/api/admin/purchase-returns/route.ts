@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { bumpLocationStock, getDefaultLocationIds, getLocationStockQty } from "@/lib/location-stock";
+import { parseBdtToPaisa } from "@/lib/money";
 
 type RefundMethod = "NONE" | "CASH" | "BKASH" | "NAGAD" | "BANK";
 type PrismaRefundMethod = "CASH" | "BKASH" | "NAGAD" | "BANK";
@@ -51,8 +52,13 @@ export async function POST(req: Request) {
 
     const notes = typeof body.notes === "string" ? body.notes.trim() : "";
 
-    const refundAmount = Number(body.refundAmount ?? 0);
-    const refundAmountClean = Number.isFinite(refundAmount) ? Math.max(0, Math.floor(refundAmount)) : 0;
+    const refundAmountClean = parseBdtToPaisa(body.refundAmount ?? 0, {
+      allowZero: true,
+      minPaisa: 0,
+    });
+    if (refundAmountClean === null) {
+      return NextResponse.json({ error: "Invalid refund amount." }, { status: 400 });
+    }
 
     const result = await db.$transaction(async (tx) => {
       const { shopId } = await getDefaultLocationIds(tx);

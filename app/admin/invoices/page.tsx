@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 export default async function InvoicesPage() {
   const invoices = await db.salesInvoice.findMany({
@@ -43,7 +44,9 @@ export default async function InvoicesPage() {
                 <td className="p-3">{inv.customerName || "—"}</td>
                 <td className="p-3 font-mono">{inv.status}</td>
                 <td className="p-3 font-mono">{inv.paymentStatus}</td>
-                <td className="p-3 font-semibold whitespace-nowrap">৳ {inv.total.toLocaleString()}</td>
+                <td className="p-3 font-semibold whitespace-nowrap">
+                  {formatBdtFromPaisa(inv.total)}
+                </td>
                 <td className="p-3 whitespace-nowrap">{new Date(inv.createdAt).toLocaleString()}</td>
               </tr>
             ))}

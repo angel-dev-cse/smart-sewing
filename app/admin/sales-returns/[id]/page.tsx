@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -76,13 +77,17 @@ export default async function SalesReturnDetailPage({ params }: Props) {
               <tr key={it.id} className="border-t">
                 <td className="p-2">{it.titleSnapshot}</td>
                 <td className="p-2 font-mono">{it.quantity}</td>
-                <td className="p-2 font-mono">৳ {it.unitPrice.toLocaleString()}</td>
-                <td className="p-2 font-mono">৳ {(it.unitPrice * it.quantity).toLocaleString()}</td>
+                <td className="p-2 font-mono">{formatBdtFromPaisa(it.unitPrice)}</td>
+                <td className="p-2 font-mono">
+                  {formatBdtFromPaisa(it.unitPrice * it.quantity)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="border-t mt-2 pt-2 font-bold">Return total: ৳ {sr.total.toLocaleString()}</div>
+        <div className="border-t mt-2 pt-2 font-bold">
+          Return total: {formatBdtFromPaisa(sr.total)}
+        </div>
       </div>
 
       <div className="rounded border p-3 space-y-2">
@@ -94,7 +99,7 @@ export default async function SalesReturnDetailPage({ params }: Props) {
             {sr.refunds.map((r) => (
               <li key={r.id} className="border rounded p-2">
                 <div className="text-sm">
-                  <span className="font-mono">{r.method}</span> — ৳ {r.amount.toLocaleString()}
+                  <span className="font-mono">{r.method}</span> — {formatBdtFromPaisa(r.amount)}
                 </div>
                 {r.note ? <div className="text-xs text-gray-600">{r.note}</div> : null}
                 {r.ledgerEntry ? (

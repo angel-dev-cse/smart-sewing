@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatBdt } from "@/lib/money";
 
 type Product = {
   id: string;
@@ -141,7 +142,7 @@ export default function NewWriteOffUI({
                 {p.title}
               </button>
               <span className="text-sm text-gray-600">
-                value ৳ {p.price} | stk {p.stock}
+                value {formatBdt(p.price)} | stk {p.stock}
               </span>
             </li>
           ))}
@@ -185,7 +186,7 @@ export default function NewWriteOffUI({
                   title="Quantity"
                 />
                 <span className="w-[120px] text-right text-sm">
-                  ৳ {i.unitValue * i.quantity}
+                  {formatBdt(i.unitValue * i.quantity)}
                 </span>
                 <button
                   type="button"
@@ -201,7 +202,7 @@ export default function NewWriteOffUI({
           </div>
         )}
 
-        <div className="border-t pt-2 font-bold">Total value: ৳ {totalValue}</div>
+        <div className="border-t pt-2 font-bold">Total value: {formatBdt(totalValue)}</div>
 
         {error && <p className="text-red-700 text-sm">{error}</p>}
 

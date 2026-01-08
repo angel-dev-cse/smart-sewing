@@ -156,7 +156,9 @@ model Product {
   slug        String      @unique
   description String?
   type        ProductType
-  price       Int // store in BDT as integer (e.g., 25000)
+  // Monetary amounts are stored in the smallest unit (paisa) for precision.
+  // Example: 25,000.00 BDT => 2,500,000 paisa
+  price       Int // store in paisa (e.g., 2500000 = 25000.00 BDT)
   stock       Int         @default(0)
   isActive    Boolean     @default(true)
 
@@ -477,7 +479,7 @@ model LedgerEntry {
   categoryId String?
 
   direction  LedgerEntryDirection
-  amount     Int // BDT integer only (e.g., 5500)
+  amount     Int // store in paisa (e.g., 550000 = 5500.00 BDT)
   note       String?
   occurredAt DateTime             @default(now())
 

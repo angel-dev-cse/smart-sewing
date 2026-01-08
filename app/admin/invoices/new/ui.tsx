@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { formatBdt } from "@/lib/money";
 
 type ProductPick = {
   id: string;
@@ -53,8 +54,8 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
       subtotal += unit * q;
     }
 
-    const safeDiscount = Math.max(0, Math.floor(discount || 0));
-    const safeDelivery = Math.max(0, Math.floor(deliveryFee || 0));
+    const safeDiscount = Math.max(0, Number.isFinite(discount) ? discount : 0);
+    const safeDelivery = Math.max(0, Number.isFinite(deliveryFee) ? deliveryFee : 0);
     const total = Math.max(0, subtotal - safeDiscount + safeDelivery);
 
     return { subtotal, safeDiscount, safeDelivery, total };
@@ -84,8 +85,8 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
       .map((r) => ({
         productId: r.productId,
         quantity: Math.floor(r.quantity),
-        ...(r.unitPriceOverride != null && Number.isInteger(r.unitPriceOverride) && r.unitPriceOverride >= 0
-          ? { unitPriceOverride: Math.floor(r.unitPriceOverride) }
+        ...(r.unitPriceOverride != null && Number.isFinite(r.unitPriceOverride) && r.unitPriceOverride >= 0
+          ? { unitPriceOverride: r.unitPriceOverride }
           : {}),
       }));
 
@@ -111,8 +112,8 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
           addressLine1: addressLine1.trim() || null,
           city: city.trim() || null,
           notes: notes.trim() || null,
-          discount: Math.floor(discount || 0),
-          deliveryFee: Math.floor(deliveryFee || 0),
+          discount: Math.max(0, Number.isFinite(discount) ? discount : 0),
+          deliveryFee: Math.max(0, Number.isFinite(deliveryFee) ? deliveryFee : 0),
           items: cleanRows,
         }),
       });
@@ -219,7 +220,7 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
                     <option value="">Select product...</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.title} (৳ {p.price.toLocaleString()}, stock {p.stock})
+                        {p.title} ({formatBdt(p.price)}, stock {p.stock})
                       </option>
                     ))}
                   </select>
@@ -251,14 +252,14 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
                   />
                   {p && (
                     <p className="text-[11px] text-gray-600 mt-1">
-                      Default: ৳ {p.price.toLocaleString()} • Stock: {p.stock}
+                      Default: {formatBdt(p.price)} • Stock: {p.stock}
                     </p>
                   )}
                 </div>
 
                 <div className="md:col-span-1 flex items-center justify-between md:justify-end gap-2">
                   <div className="text-sm font-semibold md:hidden">
-                    ৳ {lineTotal.toLocaleString()}
+                    {formatBdt(lineTotal)}
                   </div>
                   {rows.length > 1 && (
                     <button
@@ -272,7 +273,7 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
                 </div>
 
                 <div className="md:col-span-12 text-right text-sm font-semibold hidden md:block">
-                  Line total: ৳ {lineTotal.toLocaleString()}
+                  Line total: {formatBdt(lineTotal)}
                 </div>
               </div>
             );
@@ -311,19 +312,19 @@ export default function NewInvoiceForm({ products }: { products: ProductPick[] }
         <div className="border-t pt-3 text-sm space-y-1">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>৳ {computed.subtotal.toLocaleString()}</span>
+            <span>{formatBdt(computed.subtotal)}</span>
           </div>
           <div className="flex justify-between">
             <span>Discount</span>
-            <span>- ৳ {computed.safeDiscount.toLocaleString()}</span>
+            <span>- {formatBdt(computed.safeDiscount)}</span>
           </div>
           <div className="flex justify-between">
             <span>Delivery fee</span>
-            <span>+ ৳ {computed.safeDelivery.toLocaleString()}</span>
+            <span>+ {formatBdt(computed.safeDelivery)}</span>
           </div>
           <div className="flex justify-between font-bold border-t pt-2 mt-2">
             <span>Total</span>
-            <span>৳ {computed.total.toLocaleString()}</span>
+            <span>{formatBdt(computed.total)}</span>
           </div>
         </div>
       </div>

@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 const TZ = "Asia/Dhaka";
-
-function money(n: number | null | undefined) {
-  return (n ?? 0).toLocaleString();
-}
 
 function ymdInTz(d: Date) {
   // en-CA => YYYY-MM-DD
@@ -144,19 +141,12 @@ export default async function AdminReportsPage() {
         createdAt: true,
       },
     }),
-    (async () => {
-      const rawProducts = await db.product.findMany({
-        where: { isActive: true, stock: { lte: 2 } },
-        orderBy: [{ stock: "asc" }, { title: "asc" }],
-        take: 25,
-        select: { id: true, title: true, stock: true, price: true },
-      });
-      // Convert prices from paisa to BDT for display
-      return rawProducts.map(product => ({
-        ...product,
-        price: product.price / 100, // Convert from paisa to BDT
-      }));
-    })(),
+    db.product.findMany({
+      where: { isActive: true, stock: { lte: 2 } },
+      orderBy: [{ stock: "asc" }, { title: "asc" }],
+      take: 25,
+      select: { id: true, title: true, stock: true, price: true },
+    }),
     db.ledgerAccount.findMany({
       where: { isActive: true },
       orderBy: [{ kind: "asc" }, { name: "asc" }],
@@ -222,25 +212,25 @@ export default async function AdminReportsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded border bg-white p-3">
           <div className="text-xs text-gray-600">Today sales (gross)</div>
-          <div className="text-xl font-bold">৳ {money(grossToday)}</div>
+          <div className="text-xl font-bold">{formatBdtFromPaisa(grossToday)}</div>
           <div className="text-xs text-gray-600">Invoices: {salesToday._count._all}</div>
         </div>
 
         <div className="rounded border bg-white p-3">
           <div className="text-xs text-gray-600">Today sales (net)</div>
-          <div className="text-xl font-bold">৳ {money(netToday)}</div>
-          <div className="text-xs text-gray-600">Returns: ৳ {money(returnsToday)}</div>
+          <div className="text-xl font-bold">{formatBdtFromPaisa(netToday)}</div>
+          <div className="text-xs text-gray-600">Returns: {formatBdtFromPaisa(returnsToday)}</div>
         </div>
 
         <div className="rounded border bg-white p-3">
           <div className="text-xs text-gray-600">This month sales (net)</div>
-          <div className="text-xl font-bold">৳ {money(netMonth)}</div>
-          <div className="text-xs text-gray-600">Returns: ৳ {money(returnsMonth)}</div>
+          <div className="text-xl font-bold">{formatBdtFromPaisa(netMonth)}</div>
+          <div className="text-xs text-gray-600">Returns: {formatBdtFromPaisa(returnsMonth)}</div>
         </div>
 
         <div className="rounded border bg-white p-3">
           <div className="text-xs text-gray-600">This month rental income</div>
-          <div className="text-xl font-bold">৳ {money(rentalMonth._sum.total)}</div>
+          <div className="text-xl font-bold">{formatBdtFromPaisa(rentalMonth._sum.total ?? 0)}</div>
           <div className="text-xs text-gray-600">Unpaid rental bills: {rentalUnpaid}</div>
         </div>
       </div>
@@ -274,8 +264,12 @@ export default async function AdminReportsPage() {
                   <tr key={a.id} className="border-t">
                     <td className="p-2">{a.name}</td>
                     <td className="p-2 font-mono">{a.kind}</td>
-                    <td className="p-2 font-mono">{todayNet >= 0 ? "+" : ""}৳ {money(todayNet)}</td>
-                    <td className="p-2 font-semibold whitespace-nowrap">৳ {money(balance)}</td>
+                    <td className="p-2 font-mono">
+                      {todayNet >= 0 ? "+" : "-"}{formatBdtFromPaisa(Math.abs(todayNet))}
+                    </td>
+                    <td className="p-2 font-semibold whitespace-nowrap">
+                      {formatBdtFromPaisa(balance)}
+                    </td>
                   </tr>
                 );
               })}
@@ -326,7 +320,9 @@ export default async function AdminReportsPage() {
                       {inv.phone ? <div className="text-xs text-gray-500">{inv.phone}</div> : null}
                     </td>
                     <td className="p-2 font-mono">{inv.paymentStatus}</td>
-                    <td className="p-2 font-semibold whitespace-nowrap">৳ {money(inv.total)}</td>
+                    <td className="p-2 font-semibold whitespace-nowrap">
+                      {formatBdtFromPaisa(inv.total)}
+                    </td>
                   </tr>
                 ))}
 
@@ -363,7 +359,7 @@ export default async function AdminReportsPage() {
                   <tr key={p.id} className="border-t">
                     <td className="p-2">{p.title}</td>
                     <td className="p-2 font-mono">{p.stock}</td>
-                    <td className="p-2 whitespace-nowrap">৳ {money(p.price)}</td>
+                    <td className="p-2 whitespace-nowrap">{formatBdtFromPaisa(p.price)}</td>
                   </tr>
                 ))}
 

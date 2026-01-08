@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { bumpLocationStock, getDefaultLocationIds } from "@/lib/location-stock";
+import { parseBdtToPaisa } from "@/lib/money";
 
 type RefundMethod = "NONE" | "CASH" | "BKASH" | "NAGAD" | "BANK";
 type PrismaRefundMethod = "CASH" | "BKASH" | "NAGAD" | "BANK";
@@ -39,7 +40,13 @@ export async function POST(req: Request) {
         ? refundMethodRaw
         : "NONE";
 
-    const refundAmountInput = Number(body.refundAmount ?? 0);
+    const refundAmountInput = parseBdtToPaisa(body.refundAmount ?? 0, {
+      allowZero: true,
+      minPaisa: 0,
+    });
+    if (refundAmountInput === null) {
+      return NextResponse.json({ error: "Invalid refund amount." }, { status: 400 });
+    }
     const notes = typeof body.notes === "string" ? body.notes.trim() : "";
 
     // normalize + validate requested quantities
@@ -183,7 +190,7 @@ export async function POST(req: Request) {
       });
 
       // Optional refund
-      const requestedRefund = Number.isFinite(refundAmountInput) ? Math.floor(refundAmountInput) : 0;
+      const requestedRefund = refundAmountInput;
       const refundAmount =
         refundMethod === "NONE" ? 0 : Math.max(0, Math.min(total, requestedRefund || total));
 

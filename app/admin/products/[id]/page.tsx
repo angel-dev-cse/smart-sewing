@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import ProductDetail from "./ui";
 
 type Props = {
@@ -68,7 +69,7 @@ export default async function ProductDetailPage({ params }: Props) {
               </div>
               <div>
                 <dt className="font-medium text-gray-700">Price</dt>
-                <dd className="font-mono">৳{(product.price / 100).toLocaleString('en-IN')}</dd>
+                <dd className="font-mono">{formatBdtFromPaisa(product.price)}</dd>
               </div>
               <div>
                 <dt className="font-medium text-gray-700">Current Stock</dt>

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import Link from "next/link";
 
 export default async function ShopPage() {
@@ -27,9 +28,7 @@ export default async function ShopPage() {
                 {product.type.replace("_", " ")}
               </p>
 
-              <p className="mt-3 font-bold">
-                ৳ {product.price.toLocaleString()}
-              </p>
+              <p className="mt-3 font-bold">{formatBdtFromPaisa(product.price)}</p>
 
               <p className="text-xs text-gray-500 mt-1">
                 Stock: {product.stock}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatBdt } from "@/lib/money";
 
 type Product = {
   id: string;
@@ -169,7 +170,7 @@ export default function PosClient({
                 {p.title}
               </button>
               <span className="text-sm text-gray-600">
-                ৳ {p.price} | stk {p.stock}
+                {formatBdt(p.price)} | stk {p.stock}
               </span>
             </li>
           ))}
@@ -248,12 +249,12 @@ export default function PosClient({
               value={i.qty}
               onChange={(e) => updateQty(i.id, Number(e.target.value))}
             />
-            <span>৳ {i.price * i.qty}</span>
+            <span>{formatBdt(i.price * i.qty)}</span>
             <button onClick={() => remove(i.id)}>✕</button>
           </div>
         ))}
 
-        <div className="border-t pt-2 font-bold">Total: ৳ {subtotal}</div>
+        <div className="border-t pt-2 font-bold">Total: {formatBdt(subtotal)}</div>
 
         <input
           placeholder="Customer name (optional)"

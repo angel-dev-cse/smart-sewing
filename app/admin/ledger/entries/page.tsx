@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 function fmt(n: number) {
-  return n.toLocaleString();
+  return formatBdtFromPaisa(n);
 }
 
 function fmtDT(d: Date) {
@@ -133,7 +134,7 @@ export default async function LedgerEntriesPage({ searchParams }: Props) {
                 <tr key={e.id} className="border-t">
                   <td className="p-3 whitespace-nowrap">{fmtDT(e.occurredAt)}</td>
                   <td className="p-3 font-mono">{e.direction}</td>
-                  <td className="p-3 font-semibold whitespace-nowrap">৳ {fmt(e.amount)}</td>
+                  <td className="p-3 font-semibold whitespace-nowrap">{fmt(e.amount)}</td>
                   <td className="p-3">
                     {e.account.name} <span className="text-xs text-gray-600">({e.account.kind})</span>
                   </td>

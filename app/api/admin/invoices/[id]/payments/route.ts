@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseBdtToPaisa } from "@/lib/money";
 import { NextResponse } from "next/server";
 
 const REF_TYPE = "SALES_INVOICE_PAYMENT" as const;
@@ -21,9 +22,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "accountId is required." }, { status: 400 });
     }
 
-    const amountRaw = Number(body.amount ?? 0);
-    const amountRequested = Number.isFinite(amountRaw) ? Math.max(0, Math.floor(amountRaw)) : 0;
-    if (amountRequested <= 0) {
+    const amountRequested = parseBdtToPaisa(body.amount ?? 0, { allowZero: false, minPaisa: 1 });
+    if (!amountRequested) {
       return NextResponse.json({ error: "amount must be > 0." }, { status: 400 });
     }
 

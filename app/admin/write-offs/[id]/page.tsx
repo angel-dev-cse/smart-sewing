@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -59,9 +60,9 @@ export default async function WriteOffDetailPage({ params }: Props) {
               <tr key={i.id} className="border-t">
                 <td className="p-3">{i.titleSnapshot}</td>
                 <td className="p-3 font-mono">{i.quantity}</td>
-                <td className="p-3 whitespace-nowrap">৳ {i.unitValue.toLocaleString()}</td>
+                <td className="p-3 whitespace-nowrap">{formatBdtFromPaisa(i.unitValue)}</td>
                 <td className="p-3 font-semibold whitespace-nowrap">
-                  ৳ {(i.unitValue * i.quantity).toLocaleString()}
+                  {formatBdtFromPaisa(i.unitValue * i.quantity)}
                 </td>
               </tr>
             ))}
@@ -69,7 +70,9 @@ export default async function WriteOffDetailPage({ params }: Props) {
         </table>
       </div>
 
-      <div className="text-right font-bold">Total value: ৳ {wo.totalValue.toLocaleString()}</div>
+      <div className="text-right font-bold">
+        Total value: {formatBdtFromPaisa(wo.totalValue)}
+      </div>
     </div>
   );
 }

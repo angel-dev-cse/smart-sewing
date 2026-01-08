@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -62,9 +63,11 @@ export default async function PurchaseReturnDetailPage({ params }: Props) {
             {pr.items.map((it) => (
               <tr key={it.id} className="border-t">
                 <td className="p-3">{it.titleSnapshot}</td>
-                <td className="p-3 whitespace-nowrap">৳ {it.unitCost.toLocaleString()}</td>
+                <td className="p-3 whitespace-nowrap">{formatBdtFromPaisa(it.unitCost)}</td>
                 <td className="p-3 font-mono">{it.quantity}</td>
-                <td className="p-3 font-semibold whitespace-nowrap">৳ {(it.unitCost * it.quantity).toLocaleString()}</td>
+                <td className="p-3 font-semibold whitespace-nowrap">
+                  {formatBdtFromPaisa(it.unitCost * it.quantity)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -73,7 +76,7 @@ export default async function PurchaseReturnDetailPage({ params }: Props) {
 
       <div className="rounded border p-3 bg-white flex items-center justify-between">
         <span className="font-semibold">Total</span>
-        <span className="font-bold">৳ {pr.total.toLocaleString()}</span>
+        <span className="font-bold">{formatBdtFromPaisa(pr.total)}</span>
       </div>
 
       <div className="rounded border p-3 bg-white">
@@ -84,7 +87,7 @@ export default async function PurchaseReturnDetailPage({ params }: Props) {
           <ul className="space-y-2 text-sm">
             {pr.refunds.map((r) => (
               <li key={r.id} className="border rounded p-2">
-                <div className="font-mono">{r.method} ৳ {r.amount.toLocaleString()}</div>
+                <div className="font-mono">{r.method} {formatBdtFromPaisa(r.amount)}</div>
                 <div className="text-xs text-gray-600">{new Date(r.paidAt).toLocaleString()}</div>
                 {r.note ? <div className="text-sm">{r.note}</div> : null}
                 {r.ledgerEntry ? (

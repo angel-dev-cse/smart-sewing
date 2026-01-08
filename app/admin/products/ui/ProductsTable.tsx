@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Product = {
   id: string;
@@ -92,7 +93,7 @@ export default function ProductsTable({ filters }: Props) {
   }, [filters]);
 
   const formatPrice = (price: number) => {
-    return `৳${(price / 100).toLocaleString('en-IN')}`;
+    return formatBdtFromPaisa(price);
   };
 
   if (loading) {

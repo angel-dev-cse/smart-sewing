@@ -140,7 +140,7 @@ export default function NewProductForm() {
             placeholder="25000.00"
           />
           <div className="text-xs text-gray-600 mt-1">
-            Price in BDT (e.g., 25000 for ৳25,000)
+            Price in BDT (e.g., 25000.50 for ৳25,000.50)
           </div>
         </div>
 

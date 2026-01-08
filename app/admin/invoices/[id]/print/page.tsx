@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import { notFound } from "next/navigation";
 import PrintButton from "./PrintButton";
 import Link from "next/link";
@@ -87,11 +88,11 @@ export default async function InvoicePrintPage({ params }: Props) {
               <tr key={it.id}>
                 <td className="p-2 border-b border-black/10">{it.titleSnapshot}</td>
                 <td className="p-2 border-b border-black/10 text-right">
-                  ৳ {it.unitPrice.toLocaleString()}
+                  {formatBdtFromPaisa(it.unitPrice)}
                 </td>
                 <td className="p-2 border-b border-black/10 text-right">{it.quantity}</td>
                 <td className="p-2 border-b border-black/10 text-right">
-                  ৳ {(it.unitPrice * it.quantity).toLocaleString()}
+                  {formatBdtFromPaisa(it.unitPrice * it.quantity)}
                 </td>
               </tr>
             ))}
@@ -104,20 +105,20 @@ export default async function InvoicePrintPage({ params }: Props) {
         <div className="w-full max-w-sm text-sm space-y-2">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>৳ {invoice.subtotal.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(invoice.subtotal)}</span>
           </div>
           <div className="flex justify-between">
             <span>Discount</span>
-            <span>- ৳ {invoice.discount.toLocaleString()}</span>
+            <span>- {formatBdtFromPaisa(invoice.discount)}</span>
           </div>
           <div className="flex justify-between">
             <span>Delivery fee</span>
-            <span>+ ৳ {invoice.deliveryFee.toLocaleString()}</span>
+            <span>+ {formatBdtFromPaisa(invoice.deliveryFee)}</span>
           </div>
 
           <div className="flex justify-between font-bold border-t pt-2">
             <span>Total</span>
-            <span>৳ {invoice.total.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(invoice.total)}</span>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 export default async function PurchaseBillsPage() {
   const bills = await db.purchaseBill.findMany({
@@ -37,7 +38,7 @@ export default async function PurchaseBillsPage() {
                 </td>
                 <td className="p-3">{b.supplierName}</td>
                 <td className="p-3 font-mono">{b.status}</td>
-                <td className="p-3 font-semibold">৳ {b.total.toLocaleString()}</td>
+                <td className="p-3 font-semibold">{formatBdtFromPaisa(b.total)}</td>
                 <td className="p-3 whitespace-nowrap">
                   {new Date(b.createdAt).toLocaleString()}
                 </td>

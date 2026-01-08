@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 export default async function AdminLedgerPage() {
   const accounts = await db.ledgerAccount.findMany({
@@ -59,7 +60,7 @@ export default async function AdminLedgerPage() {
 
       <div className="rounded border bg-white p-4">
         <p className="text-sm text-gray-600">Total balance</p>
-        <p className="text-2xl font-bold">৳ {totalBalance.toLocaleString()}</p>
+        <p className="text-2xl font-bold">{formatBdtFromPaisa(totalBalance)}</p>
       </div>
 
       <div className="rounded border bg-white overflow-x-auto">
@@ -79,9 +80,9 @@ export default async function AdminLedgerPage() {
                   <div className="font-medium">{r.name}</div>
                   <div className="text-xs text-gray-500">{r.kind}</div>
                 </td>
-                <td className="p-3 font-mono">৳ {r.inSum.toLocaleString()}</td>
-                <td className="p-3 font-mono">৳ {r.outSum.toLocaleString()}</td>
-                <td className="p-3 font-mono font-semibold">৳ {r.balance.toLocaleString()}</td>
+                <td className="p-3 font-mono">{formatBdtFromPaisa(r.inSum)}</td>
+                <td className="p-3 font-mono">{formatBdtFromPaisa(r.outSum)}</td>
+                <td className="p-3 font-mono font-semibold">{formatBdtFromPaisa(r.balance)}</td>
               </tr>
             ))}
           </tbody>
@@ -102,7 +103,7 @@ export default async function AdminLedgerPage() {
               <div>
                 <div className="text-sm">
                   <span className="font-mono">{e.direction}</span>{" "}
-                  <span className="font-semibold">৳ {e.amount.toLocaleString()}</span>{" "}
+                  <span className="font-semibold">{formatBdtFromPaisa(e.amount)}</span>{" "}
                   <span className="text-gray-600">({e.account.name})</span>
                 </div>
                 <div className="text-xs text-gray-600">

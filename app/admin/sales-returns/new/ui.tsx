@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { bdtFromPaisa, formatBdtFromPaisa } from "@/lib/money";
 
 type InvoiceItem = {
   productId: string;
@@ -52,6 +53,7 @@ export default function NewSalesReturnUI({ invoices }: { invoices: Invoice[] }) 
   }, [invoice, qtyByProductId]);
 
   const returnTotal = returnLines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const returnTotalBdt = bdtFromPaisa(returnTotal);
 
   function onSelectInvoice(nextId: string) {
     setInvoiceId(nextId);
@@ -76,7 +78,9 @@ export default function NewSalesReturnUI({ invoices }: { invoices: Invoice[] }) 
       return;
     }
 
-    const desiredRefund = refundMethod === "NONE" ? 0 : Math.max(0, Math.floor(refundAmount || returnTotal));
+    const safeRefund = Number.isFinite(refundAmount) ? Math.max(0, refundAmount) : 0;
+    const desiredRefund =
+      refundMethod === "NONE" ? 0 : Math.min(returnTotalBdt, safeRefund || returnTotalBdt);
 
     setLoading(true);
     try {
@@ -123,7 +127,7 @@ export default function NewSalesReturnUI({ invoices }: { invoices: Invoice[] }) 
           {invoices.length === 0 ? <option value="">No issued invoices found</option> : null}
           {invoices.map((inv) => (
             <option key={inv.id} value={inv.id}>
-              {fmt(inv.invoiceNo)} — {inv.customerName} — ৳ {inv.total.toLocaleString()}
+              {fmt(inv.invoiceNo)} - {inv.customerName} - {formatBdtFromPaisa(inv.total)}
             </option>
           ))}
         </select>
@@ -147,7 +151,7 @@ export default function NewSalesReturnUI({ invoices }: { invoices: Invoice[] }) 
                 <div className="flex-1">
                   <div className="text-sm">{l.titleSnapshot}</div>
                   <div className="text-xs text-gray-500">
-                    Sold: {l.quantity} • Unit: ৳ {l.unitPrice.toLocaleString()}
+                    Sold: {l.quantity} • Unit: {formatBdtFromPaisa(l.unitPrice)}
                   </div>
                 </div>
                 <input
@@ -162,13 +166,17 @@ export default function NewSalesReturnUI({ invoices }: { invoices: Invoice[] }) 
                   disabled={loading}
                   title="Return quantity"
                 />
-                <div className="w-[110px] text-right text-sm font-mono">৳ {l.lineTotal.toLocaleString()}</div>
+                <div className="w-[110px] text-right text-sm font-mono">
+                  {formatBdtFromPaisa(l.lineTotal)}
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        <div className="border-t pt-2 font-bold">Return total: ৳ {returnTotal.toLocaleString()}</div>
+        <div className="border-t pt-2 font-bold">
+          Return total: {formatBdtFromPaisa(returnTotal)}
+        </div>
       </div>
 
       <div className="rounded border p-3 space-y-2">
@@ -194,7 +202,7 @@ export default function NewSalesReturnUI({ invoices }: { invoices: Invoice[] }) 
             value={refundAmount}
             onChange={(e) => setRefundAmount(Number(e.target.value))}
             disabled={loading || refundMethod === "NONE"}
-            placeholder={`Refund amount (default ৳ ${returnTotal.toLocaleString()})`}
+            placeholder={`Refund amount (default ${formatBdtFromPaisa(returnTotal)})`}
           />
         </div>
         <textarea

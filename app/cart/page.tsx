@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
+import { formatBdt } from "@/lib/money";
 
 export default function CartPage() {
   const { items, removeItem, clearCart } = useCart();
@@ -31,10 +32,10 @@ export default function CartPage() {
               <div>
                 <p className="font-semibold">{it.title}</p>
                 <p className="text-sm text-gray-600">
-                  Qty: {it.quantity} × ৳ {it.price.toLocaleString()}
+                  Qty: {it.quantity} × {formatBdt(it.price)}
                 </p>
                 <p className="text-sm text-gray-800 mt-1">
-                  Line total: ৳ {(it.price * it.quantity).toLocaleString()}
+                  Line total: {formatBdt(it.price * it.quantity)}
                 </p>
 
                 <div className="mt-2 flex gap-3 text-sm">
@@ -50,9 +51,7 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <div className="font-semibold">
-                ৳ {(it.price * it.quantity).toLocaleString()}
-              </div>
+              <div className="font-semibold">{formatBdt(it.price * it.quantity)}</div>
             </li>
           ))}
         </ul>
@@ -60,7 +59,7 @@ export default function CartPage() {
 
       <div className="mt-4 flex justify-between font-bold">
         <span>Subtotal</span>
-        <span>৳ {subtotal.toLocaleString()}</span>
+        <span>{formatBdt(subtotal)}</span>
       </div>
 
       <div className="mt-6 flex gap-3">

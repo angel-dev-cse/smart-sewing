@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseBdtToPaisa } from "@/lib/money";
 import { NextResponse } from "next/server";
 
 const ALLOWED_DIR = ["IN", "OUT"] as const;
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     const accountId = String(body.accountId ?? "").trim();
     const categoryId = body.categoryId ? String(body.categoryId).trim() : null;
     const direction = String(body.direction ?? "").toUpperCase() as Dir;
-    const amount = Number(body.amount);
+    const amount = parseBdtToPaisa(body.amount, { allowZero: false, minPaisa: 1 });
     const note = body.note ? String(body.note).trim() : null;
 
     const occurredAtRaw = body.occurredAt ? String(body.occurredAt) : null;
@@ -26,8 +27,8 @@ export async function POST(req: Request) {
     if (!ALLOWED_DIR.includes(direction)) {
       return NextResponse.json({ error: "Invalid direction." }, { status: 400 });
     }
-    if (!Number.isInteger(amount) || amount <= 0) {
-      return NextResponse.json({ error: "Amount must be a positive integer." }, { status: 400 });
+    if (!amount) {
+      return NextResponse.json({ error: "Amount must be a positive number." }, { status: 400 });
     }
     if (Number.isNaN(occurredAt.getTime())) {
       return NextResponse.json({ error: "Invalid occurredAt date." }, { status: 400 });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import RentalActions from "./ui";
 import BillActions from "./bill-actions";
 
@@ -104,11 +105,11 @@ export default async function RentalDetailPage({ params }: Props) {
           <div className="border-t mt-4 pt-4 text-sm space-y-2">
             <div className="flex justify-between">
               <span>Deposit</span>
-              <span className="font-semibold">৳ {contract.deposit.toLocaleString()}</span>
+              <span className="font-semibold">{formatBdtFromPaisa(contract.deposit)}</span>
             </div>
             <div className="flex justify-between">
               <span>Monthly total</span>
-              <span className="font-semibold">৳ {monthlyTotal.toLocaleString()}</span>
+              <span className="font-semibold">{formatBdtFromPaisa(monthlyTotal)}</span>
             </div>
           </div>
         </div>
@@ -123,14 +124,14 @@ export default async function RentalDetailPage({ params }: Props) {
               <div>
                 <p className="font-medium">{it.titleSnapshot}</p>
                 <p className="text-sm text-gray-600">
-                  Qty {it.quantity} × ৳ {it.monthlyRate.toLocaleString()} / month
+                  Qty {it.quantity} × {formatBdtFromPaisa(it.monthlyRate)} / month
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Current stock: {it.product.stock}
                 </p>
               </div>
               <div className="font-semibold">
-                ৳ {(it.monthlyRate * it.quantity).toLocaleString()}
+                {formatBdtFromPaisa(it.monthlyRate * it.quantity)}
               </div>
             </li>
           ))}
@@ -176,7 +177,7 @@ export default async function RentalDetailPage({ params }: Props) {
                     <td className="p-3 font-mono">{b.status}</td>
                     <td className="p-3 font-mono">{b.paymentStatus}</td>
                     <td className="p-3 font-semibold whitespace-nowrap">
-                      ৳ {b.total.toLocaleString()}
+                      {formatBdtFromPaisa(b.total)}
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       {new Date(b.createdAt).toLocaleString()}

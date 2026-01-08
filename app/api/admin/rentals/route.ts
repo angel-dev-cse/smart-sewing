@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseBdtToPaisa } from "@/lib/money";
 import { NextResponse } from "next/server";
 
 type RentalItemInput = {
@@ -18,14 +19,17 @@ export async function POST(req: Request) {
     const addressLine1Raw = body.addressLine1 ? String(body.addressLine1).trim() : null;
     const city = body.city ? String(body.city).trim() : null;
 
-    const deposit = Number(body.deposit ?? 0);
+    const deposit = parseBdtToPaisa(body.deposit ?? 0, {
+      allowZero: true,
+      minPaisa: 0,
+    });
     const notes = body.notes ? String(body.notes).trim() : null;
 
     const items = Array.isArray(body.items) ? body.items : [];
 
     // customerName may come from selected party
-    if (!Number.isInteger(deposit) || deposit < 0) {
-      return NextResponse.json({ error: "Deposit must be a non-negative integer." }, { status: 400 });
+    if (deposit === null) {
+      return NextResponse.json({ error: "Deposit must be a non-negative amount." }, { status: 400 });
     }
     if (items.length === 0) {
       return NextResponse.json({ error: "No items." }, { status: 400 });
@@ -45,8 +49,10 @@ export async function POST(req: Request) {
       if (!it.productId) return NextResponse.json({ error: "Invalid productId." }, { status: 400 });
       if (!Number.isInteger(it.quantity) || it.quantity <= 0)
         return NextResponse.json({ error: "Quantity must be positive integer." }, { status: 400 });
-      if (!Number.isInteger(it.monthlyRate) || it.monthlyRate <= 0)
-        return NextResponse.json({ error: "Monthly rate must be positive integer." }, { status: 400 });
+      const monthlyRate = parseBdtToPaisa(it.monthlyRate, { allowZero: false, minPaisa: 1 });
+      if (!monthlyRate)
+        return NextResponse.json({ error: "Monthly rate must be a positive amount." }, { status: 400 });
+      it.monthlyRate = monthlyRate;
     }
 
     const created = await db.$transaction(async (tx) => {

@@ -43,7 +43,7 @@ export default function NewLedgerEntryForm({
 
     if (!accountId) return setError("Pick an account.");
     if (!categoryId) return setError("Pick a category.");
-    if (!Number.isInteger(amount) || amount <= 0) return setError("Amount must be a positive integer.");
+    if (!Number.isFinite(amount) || amount <= 0) return setError("Amount must be a positive number.");
 
     setLoading(true);
     try {

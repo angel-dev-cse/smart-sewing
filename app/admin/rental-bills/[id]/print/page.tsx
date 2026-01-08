@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import PrintButton from "./PrintButton";
 
 type Props = { params: Promise<{ id: string }> };
@@ -76,9 +77,9 @@ export default async function RentalBillPrintPage({ params }: Props) {
                 <tr key={it.id} className="border-b">
                   <td className="py-2">{it.titleSnapshot}</td>
                   <td className="py-2">{it.quantity}</td>
-                  <td className="py-2">৳ {it.monthlyRate.toLocaleString()}</td>
+                  <td className="py-2">{formatBdtFromPaisa(it.monthlyRate)}</td>
                   <td className="py-2 text-right font-semibold">
-                    ৳ {(it.monthlyRate * it.quantity).toLocaleString()}
+                    {formatBdtFromPaisa(it.monthlyRate * it.quantity)}
                   </td>
                 </tr>
               ))}
@@ -90,11 +91,11 @@ export default async function RentalBillPrintPage({ params }: Props) {
           <div className="w-full max-w-sm text-sm space-y-2">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span>৳ {bill.subtotal.toLocaleString()}</span>
+              <span>{formatBdtFromPaisa(bill.subtotal)}</span>
             </div>
             <div className="flex justify-between font-bold border-t pt-2">
               <span>Total</span>
-              <span>৳ {bill.total.toLocaleString()}</span>
+              <span>{formatBdtFromPaisa(bill.total)}</span>
             </div>
           </div>
         </div>

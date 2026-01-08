@@ -34,19 +34,19 @@ console.log("💰 Setting up ledger accounts...");
 await db.ledgerAccount.upsert({
   where: { name: "Cash" },
   update: {},
-  create: { name: "Cash", kind: "CASH", openingBalance: 50000 }
+  create: { name: "Cash", kind: "CASH", openingBalance: 5000000 }
 });
 
 await db.ledgerAccount.upsert({
   where: { name: "bKash" },
   update: {},
-  create: { name: "bKash", kind: "BKASH", openingBalance: 25000 }
+  create: { name: "bKash", kind: "BKASH", openingBalance: 2500000 }
 });
 
 await db.ledgerAccount.upsert({
   where: { name: "Bank" },
   update: {},
-  create: { name: "Bank", kind: "BANK", openingBalance: 100000 }
+  create: { name: "Bank", kind: "BANK", openingBalance: 10000000 }
 });
 
 // === LEDGER CATEGORIES ===
@@ -100,7 +100,7 @@ const productData = [
     title: "JUKI DDL-8700",
     slug: "juki-ddl-8700",
     type: "MACHINE_SALE",
-    price: 45000,
+    price: 4500000,
     stock: 5,
     description: "High-speed single needle lockstitch machine",
     brand: "JUKI",
@@ -113,7 +113,7 @@ const productData = [
     title: "JACK JK-810D",
     slug: "jack-jk-810d",
     type: "MACHINE_SALE",
-    price: 35000,
+    price: 3500000,
     stock: 3,
     description: "Heavy-duty single needle machine",
     brand: "JACK",
@@ -127,7 +127,7 @@ const productData = [
     title: "Servo Motor 550W",
     slug: "servo-motor-550w",
     type: "PART",
-    price: 5500,
+    price: 550000,
     stock: 8,
     description: "High-torque servo motor",
     brand: "Generic",
@@ -140,7 +140,7 @@ const productData = [
     title: "Needle Plate Set",
     slug: "needle-plate-set",
     type: "PART",
-    price: 800,
+    price: 80000,
     stock: 25,
     description: "Standard needle plate set",
     brand: "JUKI",
@@ -191,7 +191,7 @@ for (const product of createdProducts) {
 
 // JUKI machines (need unitization)
 for (let i = 0; i < 5; i++) {
-  const uniqueKey = `JUKI-DDL8700-JKDDL8700${String(i + 1).padStart(4, '0')}`;
+  const uniqueKey = `JUKI-DDL-8700-JKDDL8700${String(i + 1).padStart(4, '0')}`;
   const existing = await db.unit.findUnique({ where: { uniqueSerialKey: uniqueKey } });
   if (!existing) {
     await db.unit.create({
@@ -265,15 +265,15 @@ for (let i = 0; i < 8; i++) {
       partyId: supplier.id,
       issuedAt: new Date("2024-01-15"),
       status: "ISSUED",
-      subtotal: 225000,
-      total: 225000,
+      subtotal: 22500000,
+      total: 22500000,
       notes: "Machine purchase",
       items: {
         create: [
           {
             productId: jukiProduct.id,
             titleSnapshot: "JUKI DDL-8700",
-            unitCost: 45000,
+            unitCost: 4500000,
             quantity: 5
           }
         ]
@@ -299,7 +299,7 @@ for (let i = 0; i < 8; i++) {
           {
             productId: jukiProduct.id,
             titleSnapshot: "JUKI DDL-8700",
-            unitPrice: 45000,
+            unitPrice: 4500000,
             quantity: 2
           }
         ]
@@ -372,7 +372,7 @@ for (let i = 0; i < 8; i++) {
           {
             productId: jukiProduct.id,
             titleSnapshot: "JUKI DDL-8700",
-            unitValue: 45000,
+            unitValue: 4500000,
             quantity: 1
           }
         ]

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { bdtFromPaisa } from "@/lib/money";
 
 type Product = {
   id: string;
@@ -35,7 +36,7 @@ export default function ProductDetail({ product }: Props) {
   const [formData, setFormData] = useState({
     title: product.title,
     type: product.type,
-    price: (product.price / 100).toFixed(2), // Convert from paisa to BDT
+    price: bdtFromPaisa(product.price).toFixed(2),
     stock: product.stock.toString(),
     isActive: product.isActive,
     isAssetTracked: product.isAssetTracked,

@@ -57,7 +57,7 @@ export default function NewRentalForm({ products, parties }: { products: P[]; pa
     setError(null);
 
     if (!customerName.trim()) return setError("Customer name required.");
-    if (!Number.isInteger(deposit) || deposit < 0) return setError("Deposit must be a non-negative integer.");
+    if (!Number.isFinite(deposit) || deposit < 0) return setError("Deposit must be a non-negative amount.");
 
     const items = rows
       .map((r) => ({
@@ -71,7 +71,7 @@ export default function NewRentalForm({ products, parties }: { products: P[]; pa
 
     for (const it of items) {
       if (!Number.isInteger(it.quantity) || it.quantity <= 0) return setError("Quantity must be positive integer.");
-      if (!Number.isInteger(it.monthlyRate) || it.monthlyRate <= 0) return setError("Monthly rate must be positive integer.");
+      if (!Number.isFinite(it.monthlyRate) || it.monthlyRate <= 0) return setError("Monthly rate must be a positive amount.");
       const p = productMap.get(it.productId);
       if (!p) return setError("Invalid product.");
       // note: activation checks stock again; here is just a hint

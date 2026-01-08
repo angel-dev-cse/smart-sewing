@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatBdt } from "@/lib/money";
 
 type Product = {
   id: string;
@@ -214,7 +215,7 @@ export default function NewPurchaseUI({
                 {p.title}
               </button>
               <span className="text-sm text-gray-600">
-                cost ৳ {p.price} | stk {p.stock}
+                cost {formatBdt(p.price)} | stk {p.stock}
               </span>
             </li>
           ))}
@@ -323,7 +324,7 @@ export default function NewPurchaseUI({
                   disabled={loading}
                   title="Quantity"
                 />
-                <span className="w-[90px] text-right text-sm">৳ {i.unitCost * i.quantity}</span>
+                <span className="w-[90px] text-right text-sm">{formatBdt(i.unitCost * i.quantity)}</span>
                 <button
                   type="button"
                   onClick={() => remove(i.productId)}
@@ -338,7 +339,7 @@ export default function NewPurchaseUI({
           </div>
         )}
 
-        <div className="border-t pt-2 font-bold">Total: ৳ {subtotal}</div>
+        <div className="border-t pt-2 font-bold">Total: {formatBdt(subtotal)}</div>
 
         {/* Payment */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

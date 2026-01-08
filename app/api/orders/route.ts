@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseBdtToPaisa } from "@/lib/money";
 import { NextResponse } from "next/server";
 
 const ALLOWED_PAYMENT_METHODS = ["COD", "BKASH", "NAGAD", "BANK_TRANSFER"] as const;
@@ -20,7 +21,10 @@ export async function POST(req: Request) {
     const notes = body.notes ? String(body.notes).trim() : null;
 
     const paymentMethod = body.paymentMethod as PaymentMethod;
-    const deliveryFee = Number(body.deliveryFee ?? 0);
+    const deliveryFee = parseBdtToPaisa(body.deliveryFee ?? 0, {
+      allowZero: true,
+      minPaisa: 0,
+    });
 
     const items = Array.isArray(body.items) ? body.items : [];
 
@@ -32,7 +36,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
     }
 
-    if (!Number.isInteger(deliveryFee) || deliveryFee < 0) {
+    if (deliveryFee === null) {
       return NextResponse.json({ error: "Invalid delivery fee." }, { status: 400 });
     }
 

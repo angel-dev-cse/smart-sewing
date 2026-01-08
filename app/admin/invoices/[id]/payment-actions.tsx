@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { bdtFromPaisa, formatBdtFromPaisa } from "@/lib/money";
 
 type PaymentStatus = "UNPAID" | "PARTIAL" | "PAID";
 
@@ -33,7 +34,9 @@ export default function InvoicePaymentActions({
   }, [accounts]);
 
   const [accountId, setAccountId] = useState<string>(defaultAccountId);
-  const [amount, setAmount] = useState<string>(remaining ? String(remaining) : "");
+  const [amount, setAmount] = useState<string>(
+    remaining ? String(bdtFromPaisa(remaining)) : ""
+  );
   const [note, setNote] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export default function InvoicePaymentActions({
     try {
       if (!accountId) throw new Error("Please select a ledger account.");
 
-      const n = Math.floor(Number(amount));
+      const n = Number(amount);
       if (!Number.isFinite(n) || n <= 0) throw new Error("Enter a valid amount.");
 
       const res = await fetch(`/api/admin/invoices/${invoiceId}/payments`, {
@@ -73,11 +76,11 @@ export default function InvoicePaymentActions({
           <span className="font-mono">{paymentStatus}</span>
           <span className="text-gray-400">•</span>
           <span>
-            Paid: <span className="font-semibold">৳ {paid.toLocaleString()}</span>
+            Paid: <span className="font-semibold">{formatBdtFromPaisa(paid)}</span>
           </span>
           <span className="text-gray-400">•</span>
           <span>
-            Remaining: <span className="font-semibold">৳ {remaining.toLocaleString()}</span>
+            Remaining: <span className="font-semibold">{formatBdtFromPaisa(remaining)}</span>
           </span>
         </div>
       </div>
@@ -115,7 +118,7 @@ export default function InvoicePaymentActions({
               className="w-full border rounded px-3 py-2 text-sm"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={remaining ? String(remaining) : "0"}
+              placeholder={remaining ? String(bdtFromPaisa(remaining)) : "0"}
               inputMode="numeric"
               disabled={loading || accounts.length === 0}
             />

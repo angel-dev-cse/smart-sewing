@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { bdtFromPaisa } from "@/lib/money";
 import NewWriteOffUI from "./ui";
 
 export default async function NewWriteOffPage() {
@@ -9,9 +10,9 @@ export default async function NewWriteOffPage() {
   });
 
   // Convert prices from paisa to BDT for UI display
-  const productsWithBDTPrices = products.map(product => ({
+  const productsWithBDTPrices = products.map((product) => ({
     ...product,
-    price: product.price / 100, // Convert from paisa to BDT
+    price: bdtFromPaisa(product.price),
   }));
 
   return (

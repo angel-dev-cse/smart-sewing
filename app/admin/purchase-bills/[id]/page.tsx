@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
+import { getDefaultLocationIds } from "@/lib/location-stock";
+import IssuePanel from "./IssuePanel";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -11,7 +14,23 @@ export default async function PurchaseBillDetailPage({ params }: Props) {
     where: { id },
     include: {
       party: { select: { id: true, name: true, type: true, phone: true } },
-      items: { orderBy: { createdAt: "asc" } },
+      items: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              isAssetTracked: true,
+              serialRequired: true,
+              brand: true,
+              model: true,
+              stock: true,
+            },
+          },
+        },
+      },
       payments: {
         orderBy: { paidAt: "desc" },
         include: {
@@ -30,6 +49,13 @@ export default async function PurchaseBillDetailPage({ params }: Props) {
   });
 
   if (!bill) return notFound();
+
+  const locations = await db.location.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, code: true, name: true },
+  });
+  const defaults = await getDefaultLocationIds(db);
 
   return (
     <div className="space-y-6">
@@ -80,9 +106,11 @@ export default async function PurchaseBillDetailPage({ params }: Props) {
             {bill.items.map((it) => (
               <tr key={it.id} className="border-t">
                 <td className="p-3">{it.titleSnapshot}</td>
-                <td className="p-3 whitespace-nowrap">৳ {it.unitCost.toLocaleString()}</td>
+                <td className="p-3 whitespace-nowrap">{formatBdtFromPaisa(it.unitCost)}</td>
                 <td className="p-3 font-mono">{it.quantity}</td>
-                <td className="p-3 whitespace-nowrap font-semibold">৳ {(it.unitCost * it.quantity).toLocaleString()}</td>
+                <td className="p-3 whitespace-nowrap font-semibold">
+                  {formatBdtFromPaisa(it.unitCost * it.quantity)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -95,11 +123,11 @@ export default async function PurchaseBillDetailPage({ params }: Props) {
           <div className="text-sm space-y-1">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span className="font-mono">৳ {bill.subtotal.toLocaleString()}</span>
+              <span className="font-mono">{formatBdtFromPaisa(bill.subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Total</span>
-              <span className="font-mono font-semibold">৳ {bill.total.toLocaleString()}</span>
+              <span className="font-mono font-semibold">{formatBdtFromPaisa(bill.total)}</span>
             </div>
           </div>
         </div>
@@ -113,13 +141,13 @@ export default async function PurchaseBillDetailPage({ params }: Props) {
               {bill.payments.map((p) => (
                 <div key={p.id} className="rounded border p-3">
                   <div className="text-sm font-mono">
-                    {p.method} · ৳ {p.amount.toLocaleString()} · {new Date(p.paidAt).toLocaleString()}
+                    {p.method} · {formatBdtFromPaisa(p.amount)} · {new Date(p.paidAt).toLocaleString()}
                   </div>
                   {p.note ? <div className="text-xs text-gray-600 mt-1">{p.note}</div> : null}
 
                   {p.ledgerEntry ? (
                     <div className="text-xs text-gray-600 mt-2">
-                      Ledger: {p.ledgerEntry.direction} ৳ {p.ledgerEntry.amount.toLocaleString()} ({p.ledgerEntry.account.name})
+                      Ledger: {p.ledgerEntry.direction} {formatBdtFromPaisa(p.ledgerEntry.amount)} ({p.ledgerEntry.account.name})
                     </div>
                   ) : (
                     <div className="text-xs text-gray-600 mt-2">Ledger: not linked</div>
@@ -130,6 +158,14 @@ export default async function PurchaseBillDetailPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      <IssuePanel
+        billId={bill.id}
+        status={bill.status}
+        items={bill.items}
+        locations={locations}
+        defaultLocationId={locations.find((l) => l.code === "SHOP")?.id ?? defaults.shopId}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -250,7 +251,7 @@ export default async function PartyDetailPage({ params, searchParams }: Props) {
                     <td className="p-3 font-mono">{t.status ?? "—"}</td>
                     <td className="p-3 font-mono">{t.paymentStatus ?? "—"}</td>
                     <td className="p-3 text-right font-semibold">
-                      {typeof t.total === "number" ? `৳ ${t.total.toLocaleString()}` : "—"}
+                      {typeof t.total === "number" ? formatBdtFromPaisa(t.total) : "-"}
                     </td>
                   </tr>
                 ))}

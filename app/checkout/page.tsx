@@ -1,6 +1,7 @@
 "use client";
 
 import { useCart } from "@/lib/cart-context";
+import { formatBdt } from "@/lib/money";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PAYMENT_INSTRUCTIONS } from "@/lib/payment-instructions";
@@ -98,24 +99,24 @@ export default function CheckoutPage() {
                   <span>
                     {it.title} × {it.quantity}
                   </span>
-                  <span>৳ {(it.price * it.quantity).toLocaleString()}</span>
+                  <span>{formatBdt(it.price * it.quantity)}</span>
                 </li>
               ))}
             </ul>
 
             <div className="border-t mt-3 pt-3 text-sm flex justify-between">
               <span>Subtotal</span>
-              <span>৳ {subtotal.toLocaleString()}</span>
+              <span>{formatBdt(subtotal)}</span>
             </div>
 
             <div className="mt-2 text-sm flex justify-between">
               <span>Delivery fee</span>
-              <span>৳ {deliveryFee.toLocaleString()}</span>
+              <span>{formatBdt(deliveryFee)}</span>
             </div>
 
             <div className="border-t mt-3 pt-3 flex justify-between font-bold">
               <span>Total</span>
-              <span>৳ {total.toLocaleString()}</span>
+              <span>{formatBdt(total)}</span>
             </div>
           </div>
 

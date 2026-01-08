@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -39,24 +40,24 @@ export default async function OrderSuccessPage({ params }: Props) {
                 <span>
                   {it.titleSnapshot} × {it.quantity}
                 </span>
-                <span>৳ {(it.unitPrice * it.quantity).toLocaleString()}</span>
+                <span>{formatBdtFromPaisa(it.unitPrice * it.quantity)}</span>
               </li>
             ))}
           </ul>
 
           <div className="border-t mt-3 pt-3 text-sm flex justify-between">
             <span>Subtotal</span>
-            <span>৳ {order.subtotal.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(order.subtotal)}</span>
           </div>
 
           <div className="mt-2 text-sm flex justify-between">
             <span>Delivery fee</span>
-            <span>৳ {order.deliveryFee.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(order.deliveryFee)}</span>
           </div>
 
           <div className="border-t mt-3 pt-3 flex justify-between font-bold">
             <span>Total</span>
-            <span>৳ {order.total.toLocaleString()}</span>
+            <span>{formatBdtFromPaisa(order.total)}</span>
           </div>
         </div>
       </div>

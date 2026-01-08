@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   searchParams?: Promise<{ status?: string; q?: string }>;
@@ -109,7 +110,9 @@ export default async function AdminWriteOffsPage({ searchParams }: Props) {
                 </td>
                 <td className="p-3">{wo.reason ?? <span className="text-gray-500">—</span>}</td>
                 <td className="p-3 font-mono">{wo.status}</td>
-                <td className="p-3 font-semibold whitespace-nowrap">৳ {wo.totalValue.toLocaleString()}</td>
+                <td className="p-3 font-semibold whitespace-nowrap">
+                  {formatBdtFromPaisa(wo.totalValue)}
+                </td>
                 <td className="p-3 whitespace-nowrap">{new Date(wo.createdAt).toLocaleString()}</td>
               </tr>
             ))}

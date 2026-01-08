@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 import InvoicePaymentActions from "./payment-actions";
 import InvoiceActions from "./ui-actions";
 
@@ -113,8 +114,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
                   <tr key={it.id} className="border-t">
                     <td className="p-3">{it.titleSnapshot}</td>
                     <td className="p-3 font-mono">{it.quantity}</td>
-                    <td className="p-3 font-mono">৳ {it.unitPrice.toLocaleString()}</td>
-                    <td className="p-3 font-mono">৳ {(it.unitPrice * it.quantity).toLocaleString()}</td>
+                    <td className="p-3 font-mono">{formatBdtFromPaisa(it.unitPrice)}</td>
+                    <td className="p-3 font-mono">{formatBdtFromPaisa(it.unitPrice * it.quantity)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -125,15 +126,15 @@ export default async function InvoiceDetailPage({ params }: Props) {
         <div className="border-t mt-4 pt-4 text-sm space-y-2">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span className="font-semibold">৳ {inv.subtotal.toLocaleString()}</span>
+            <span className="font-semibold">{formatBdtFromPaisa(inv.subtotal)}</span>
           </div>
           <div className="flex justify-between">
             <span>Discount</span>
-            <span className="font-semibold">৳ {inv.discount.toLocaleString()}</span>
+            <span className="font-semibold">{formatBdtFromPaisa(inv.discount)}</span>
           </div>
           <div className="flex justify-between">
             <span>Total</span>
-            <span className="font-semibold">৳ {inv.total.toLocaleString()}</span>
+            <span className="font-semibold">{formatBdtFromPaisa(inv.total)}</span>
           </div>
         </div>
       </div>
@@ -144,8 +145,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
           <div>
             <p className="font-semibold">Payments</p>
             <p className="text-sm text-gray-600">
-              Paid: <span className="font-mono">৳ {paid.toLocaleString()}</span> · Remaining:{" "}
-              <span className="font-mono">৳ {remaining.toLocaleString()}</span>
+              Paid: <span className="font-mono">{formatBdtFromPaisa(paid)}</span> · Remaining:{" "}
+              <span className="font-mono">{formatBdtFromPaisa(remaining)}</span>
             </p>
           </div>
 
@@ -182,7 +183,9 @@ export default async function InvoiceDetailPage({ params }: Props) {
                   <tr key={p.id} className="border-t">
                     <td className="p-3 whitespace-nowrap">{new Date(p.occurredAt).toLocaleString()}</td>
                     <td className="p-3">{p.account.name} ({p.account.kind})</td>
-                    <td className="p-3 font-mono whitespace-nowrap">৳ {p.amount.toLocaleString()}</td>
+                    <td className="p-3 font-mono whitespace-nowrap">
+                      {formatBdtFromPaisa(p.amount)}
+                    </td>
                     <td className="p-3 text-gray-700">{p.note ?? "—"}</td>
                   </tr>
                 ))}

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { formatBdtFromPaisa } from "@/lib/money";
 import AdminOrderActions from "./ui";
 import OrderInvoiceActions from "./invoice-actions";
 
@@ -66,15 +67,15 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <div className="border-t mt-4 pt-4 text-sm space-y-2">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span>৳ {order.subtotal.toLocaleString()}</span>
+              <span>{formatBdtFromPaisa(order.subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Delivery fee</span>
-              <span>৳ {order.deliveryFee.toLocaleString()}</span>
+              <span>{formatBdtFromPaisa(order.deliveryFee)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>Total</span>
-              <span>৳ {order.total.toLocaleString()}</span>
+              <span>{formatBdtFromPaisa(order.total)}</span>
             </div>
           </div>
         </div>
@@ -88,11 +89,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
               <div>
                 <p className="font-medium">{it.titleSnapshot}</p>
                 <p className="text-sm text-gray-600">
-                  Qty {it.quantity} × ৳ {it.unitPrice.toLocaleString()}
+                  Qty {it.quantity} × {formatBdtFromPaisa(it.unitPrice)}
                 </p>
               </div>
               <div className="font-semibold">
-                ৳ {(it.unitPrice * it.quantity).toLocaleString()}
+                {formatBdtFromPaisa(it.unitPrice * it.quantity)}
               </div>
             </li>
           ))}

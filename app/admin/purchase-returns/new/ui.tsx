@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { bdtFromPaisa, formatBdtFromPaisa } from "@/lib/money";
 
 type BillItem = {
   productId: string;
@@ -41,6 +42,7 @@ export default function NewPurchaseReturnUI({ bills }: { bills: Bill[] }) {
       return sum + it.unitCost * q;
     }, 0);
   }, [bill, qtyByProductId]);
+  const totalBdt = bdtFromPaisa(total);
 
   function setQty(productId: string, next: number, max: number) {
     const v = Math.max(0, Math.min(max, Math.floor(next)));
@@ -64,8 +66,8 @@ export default function NewPurchaseReturnUI({ bills }: { bills: Bill[] }) {
     }
 
     const method = refundMethod;
-    const rawAmount = Number.isFinite(refundAmount) ? Math.max(0, Math.floor(refundAmount)) : 0;
-    const amount = method === "NONE" ? 0 : Math.min(total, rawAmount || total);
+    const rawAmount = Number.isFinite(refundAmount) ? Math.max(0, refundAmount) : 0;
+    const amount = method === "NONE" ? 0 : Math.min(totalBdt, rawAmount || totalBdt);
 
     setLoading(true);
     try {
@@ -115,7 +117,7 @@ export default function NewPurchaseReturnUI({ bills }: { bills: Bill[] }) {
         >
           {bills.map((b) => (
             <option key={b.id} value={b.id}>
-              PB-{String(b.billNo).padStart(6, "0")} — {b.supplierName} (৳ {b.total.toLocaleString()})
+              PB-{String(b.billNo).padStart(6, "0")} — {b.supplierName} ({formatBdtFromPaisa(b.total)})
             </option>
           ))}
         </select>
@@ -141,7 +143,7 @@ export default function NewPurchaseReturnUI({ bills }: { bills: Bill[] }) {
                   <div className="flex-1">
                     <div className="text-sm font-medium">{it.titleSnapshot}</div>
                     <div className="text-xs text-gray-600">
-                      Purchased: {it.quantity} • Unit cost: ৳ {it.unitCost.toLocaleString()}
+                      Purchased: {it.quantity} • Unit cost: {formatBdtFromPaisa(it.unitCost)}
                     </div>
                   </div>
                   <input
@@ -155,7 +157,7 @@ export default function NewPurchaseReturnUI({ bills }: { bills: Bill[] }) {
                     title="Return quantity"
                   />
                   <div className="w-[120px] text-right text-sm font-semibold whitespace-nowrap">
-                    ৳ {(it.unitCost * q).toLocaleString()}
+                    {formatBdtFromPaisa(it.unitCost * q)}
                   </div>
                 </div>
               );
@@ -165,7 +167,7 @@ export default function NewPurchaseReturnUI({ bills }: { bills: Bill[] }) {
 
         <div className="border-t mt-3 pt-3 flex items-center justify-between">
           <span className="font-semibold">Return total</span>
-          <span className="font-bold">৳ {total.toLocaleString()}</span>
+          <span className="font-bold">{formatBdtFromPaisa(total)}</span>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   searchParams?: Promise<{
@@ -162,7 +163,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                 </td>
 
                 <td className="p-3 whitespace-nowrap font-semibold">
-                  ৳ {o.total.toLocaleString()}
+                  {formatBdtFromPaisa(o.total)}
                 </td>
 
                 <td className="p-3 whitespace-nowrap">{o._count.items}</td>

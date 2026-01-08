@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { formatBdtFromPaisa } from "@/lib/money";
 
 type Props = {
   searchParams?: Promise<{
@@ -160,7 +161,9 @@ export default async function AdminRentalBillsPage({ searchParams }: Props) {
                 </td>
                 <td className="p-3 font-mono">{b.status}</td>
                 <td className="p-3 font-mono">{b.paymentStatus}</td>
-                <td className="p-3 font-semibold whitespace-nowrap">৳ {b.total.toLocaleString()}</td>
+                <td className="p-3 font-semibold whitespace-nowrap">
+                  {formatBdtFromPaisa(b.total)}
+                </td>
                 <td className="p-3 whitespace-nowrap">{new Date(b.createdAt).toLocaleString()}</td>
               </tr>
             ))}

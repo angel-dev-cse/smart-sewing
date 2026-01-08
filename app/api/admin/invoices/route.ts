@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseBdtToPaisa } from "@/lib/money";
 import { NextResponse } from "next/server";
 
 type InvoiceItemInput = {
@@ -17,14 +18,20 @@ export async function POST(req: Request) {
     const city = body.city ? String(body.city).trim() : null;
     const notes = body.notes ? String(body.notes).trim() : null;
 
-    const deliveryFee = Number(body.deliveryFee ?? 0);
-    const discount = Number(body.discount ?? 0);
+    const deliveryFee = parseBdtToPaisa(body.deliveryFee ?? 0, {
+      allowZero: true,
+      minPaisa: 0,
+    });
+    const discount = parseBdtToPaisa(body.discount ?? 0, {
+      allowZero: true,
+      minPaisa: 0,
+    });
 
     const items = Array.isArray(body.items) ? body.items : [];
     if (!customerName) return NextResponse.json({ error: "Customer name required" }, { status: 400 });
-    if (!Number.isInteger(deliveryFee) || deliveryFee < 0)
+    if (deliveryFee === null)
       return NextResponse.json({ error: "Invalid delivery fee" }, { status: 400 });
-    if (!Number.isInteger(discount) || discount < 0)
+    if (discount === null)
       return NextResponse.json({ error: "Invalid discount" }, { status: 400 });
     if (items.length === 0) return NextResponse.json({ error: "No items" }, { status: 400 });
 
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
     for (const it of items) {
       const productId = String(it.productId);
       const quantity = Number(it.quantity);
-      const unitPriceOverride = it.unitPriceOverride;
+      const unitPriceOverrideRaw = it.unitPriceOverride;
 
       if (!Number.isInteger(quantity) || quantity <= 0) {
         return NextResponse.json({ error: "Invalid quantity" }, { status: 400 });
@@ -54,7 +61,18 @@ export async function POST(req: Request) {
       const p = productMap.get(productId);
       if (!p) return NextResponse.json({ error: "Product not found" }, { status: 400 });
 
-      const unitPrice = Number.isInteger(unitPriceOverride) && unitPriceOverride >= 0 ? unitPriceOverride : p.price;
+      let unitPriceOverride: number | null = null;
+      if (unitPriceOverrideRaw != null) {
+        unitPriceOverride = parseBdtToPaisa(unitPriceOverrideRaw, {
+          allowZero: true,
+          minPaisa: 0,
+        });
+        if (unitPriceOverride === null) {
+          return NextResponse.json({ error: "Invalid unit price override" }, { status: 400 });
+        }
+      }
+
+      const unitPrice = unitPriceOverride ?? p.price;
 
       subtotal += unitPrice * quantity;
 
